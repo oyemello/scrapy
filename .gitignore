@@ -11,4 +11,6 @@ site/
 dist/
 build/
 docs/assets/*
+!docs/assets/overrides.css
+!docs/assets/darkmode.js
 .env
