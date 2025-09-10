@@ -205,7 +205,11 @@ def rewrite_html(
             asset_abs_path = os.path.join(docs_dir, asset_rel_path)
 
             try:
-                client.download(src if src.startswith("http") else src if src.startswith("/") else f"/wiki{src}", asset_abs_path)
+                # Normalize to an absolute path if not a full URL
+                normalized_src = src
+                if not src.startswith("http"):
+                    normalized_src = "/" + src.lstrip("/")
+                client.download(normalized_src, asset_abs_path)
                 downloaded.append(asset_rel_path)
                 # rewrite src to relative path from the page location
                 page_folder_abs = os.path.join(docs_dir, page_dir) if page_dir else docs_dir
