@@ -11,3 +11,4 @@ site/
 dist/
 build/
 docs/assets/*
+.env

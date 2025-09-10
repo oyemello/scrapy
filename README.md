@@ -12,11 +12,11 @@ Confluence → GitHub Pages (POC). This syncs a Confluence page tree into a stat
    - `python3 -m venv .venv && source .venv/bin/activate`
    - `pip install -r requirements.txt`
 
-2. Set env vars (Confluence Cloud):
-   - `CONFLUENCE_BASE_URL` (e.g. `https://YOUR-SITE.atlassian.net/wiki`)
-   - `CONFLUENCE_EMAIL` (your Atlassian account email)
-   - `CONFLUENCE_API_TOKEN` (create at https://id.atlassian.com/manage-profile/security/api-tokens)
-   - `CONFLUENCE_ROOT_PAGE_ID` (numeric ID of the root page)
+2. Add a `.env` file in the repo root (auto-loaded):
+   - `CONFLUENCE_BASE_URL=https://YOUR-SITE.atlassian.net/wiki`
+   - `CONFLUENCE_EMAIL=you@example.com`
+   - `CONFLUENCE_API_TOKEN=...` (create at https://id.atlassian.com/manage-profile/security/api-tokens)
+   - `CONFLUENCE_ROOT_PAGE_ID=123456`
 
 3. Run sync:
    - `python scripts/sync_confluence.py`

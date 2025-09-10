@@ -11,6 +11,7 @@ from typing import Dict, List, Optional, Tuple
 import requests
 from bs4 import BeautifulSoup
 from markdownify import markdownify as md
+from dotenv import load_dotenv
 import yaml
 
 
@@ -326,6 +327,9 @@ def update_mkdocs_yaml(site_name: str, nav: List, mkdocs_path: str = "mkdocs.yml
 
 
 def main() -> None:
+    # Load .env if present; do not override already-set environment variables
+    load_dotenv(override=False)
+
     base_url = env("CONFLUENCE_BASE_URL")
     email = env("CONFLUENCE_EMAIL")
     token = env("CONFLUENCE_API_TOKEN")
