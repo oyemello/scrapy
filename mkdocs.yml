@@ -1,4 +1,5 @@
 site_name: scrapy
+site_url: https://oyemello.github.io/scrapy/
 theme:
   name: mkdocs
 docs_dir: docs
