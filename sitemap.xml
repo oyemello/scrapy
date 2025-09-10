@@ -1,3 +1,28 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+         <loc>https://oyemello.github.io/scrapy/</loc>
+         <lastmod>2025-09-10</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://oyemello.github.io/scrapy/analysis-131318/</loc>
+         <lastmod>2025-09-10</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://oyemello.github.io/scrapy/analysis-2-393381/</loc>
+         <lastmod>2025-09-10</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://oyemello.github.io/scrapy/software-architecture-review-65735/</loc>
+         <lastmod>2025-09-10</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://oyemello.github.io/scrapy/spent-planning-checklist-163952/</loc>
+         <lastmod>2025-09-10</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
 </urlset>
