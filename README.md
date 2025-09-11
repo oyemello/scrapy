@@ -65,3 +65,11 @@ Create these in your GitHub repo Settings → Secrets and variables → Actions:
 ## Prompts
 - `Codex_Prompts_vSept11.txt` — prompt used to generate the new modular version.
 - `Codex_Prompts.txt` — prompt used for the initial POC version.
+
+## Usage
+- Local sync (recommended): `python scripts/sync_confluence.py`
+- Local sync (legacy): `python scripts/sync_confluence_vSep10.py`
+- Preview locally: `mkdocs serve` then open `http://127.0.0.1:8000`
+- Manual deploy: `gh workflow run .github/workflows/sync-and-deploy.yml --ref main`
+- Watch run: `gh run list --limit 1 && gh run watch <RUN_ID>`
+- Live site: https://oyemello.github.io/scrapy/
