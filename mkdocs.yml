@@ -11,14 +11,14 @@ theme:
     - content.code.copy
   palette:
     - scheme: default
-      primary: custom
-      accent: custom
+      primary: blue
+      accent: indigo
       toggle:
         icon: material/weather-night
         name: Switch to dark mode
     - scheme: slate
-      primary: custom
-      accent: custom
+      primary: blue
+      accent: indigo
       toggle:
         icon: material/weather-sunny
         name: Switch to light mode

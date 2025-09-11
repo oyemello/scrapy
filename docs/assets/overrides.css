@@ -75,23 +75,11 @@
 }
 .category-card .card-cta { display: none; }
 .category-card .arrow-icon { display: none; }
-/**
- * Material for MkDocs Theme Customizations
- * Primary color: Deep Blue #002663
- */
+/** Material for MkDocs Theme Customizations **/
+/* Keep cards/nav tweaks, but use Material's built‑in blue palette */
 
-/* ==========================================================================
-   Color System Variables
-   ========================================================================== */
+/* Category card variables piggyback on Material variables */
 :root {
-    /* Primary colors - Deep Blue theme */
-    --md-primary-fg-color: #002663;
-    --md-primary-fg-color--light: #0d3b8e;
-    --md-primary-fg-color--dark: #001a44;
-    --md-primary-bg-color: #ffffff;
-    --md-accent-fg-color: #0d3b8e;
-    
-    /* Category card variables for easier customization */
     --card-border-color: var(--md-primary-fg-color);
     --card-hover-border: var(--md-primary-fg-color--light);
     --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
@@ -113,18 +101,7 @@
     display: none !important;
 }
 
-/* Apply primary color to header */
-.md-header {
-    background-color: var(--md-primary-fg-color) !important;
-}
-
-/* Primary navigation styling */
-.md-nav__title,
-.md-nav__link--active,
-.md-nav__link:focus,
-.md-nav__link:hover {
-    color: var(--md-primary-fg-color) !important;
-}
+/* Rely on theme defaults for header/nav colors */
 
 /* ==========================================================================
    Responsive Layout
@@ -192,12 +169,4 @@
     outline-offset: 2px;
 }
 
-/* Dark mode adjustments */
-[data-md-color-scheme="slate"] .category-card {
-    background: var(--md-default-bg-color--light);
-    border-color: var(--md-default-fg-color--lightest);
-}
-
-[data-md-color-scheme="slate"] .category-card:hover {
-    border-color: var(--md-primary-fg-color--light);
-}
+/* Dark mode inherits palette automatically */
