@@ -21,6 +21,11 @@
          <changefreq>daily</changefreq>
     </url>
     <url>
+         <loc>https://oyemello.github.io/scrapy/overview/</loc>
+         <lastmod>2025-09-11</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
          <loc>https://oyemello.github.io/scrapy/software-architecture-review-65735/</loc>
          <lastmod>2025-09-11</lastmod>
          <changefreq>daily</changefreq>
