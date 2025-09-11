@@ -10,3 +10,17 @@
 @media (min-width: 1400px) {
   .md-grid { max-width: 1100px; }
 }
+
+/* Color system: Primary Deep Blue #002663 with tints/shades */
+:root {
+  --md-primary-fg-color: #002663;          /* base */
+  --md-primary-fg-color--light: #0d3b8e;   /* lighter tint */
+  --md-primary-fg-color--dark: #001a44;    /* darker shade */
+  --md-primary-bg-color: #ffffff;
+  --md-accent-fg-color: #0d3b8e;
+}
+
+.md-header, .md-tabs { background-color: var(--md-primary-fg-color) !important; }
+.md-nav__title, .md-nav__link--active, .md-nav__link:focus, .md-nav__link:hover {
+  color: var(--md-primary-fg-color) !important;
+}

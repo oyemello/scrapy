@@ -4,6 +4,8 @@ theme:
   name: material
   features:
     - navigation.tracking
+    - navigation.sections
+    - navigation.expand
     - search.highlight
     - search.suggest
     - content.code.copy
