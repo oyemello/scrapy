@@ -219,9 +219,7 @@ class Processor:
         for t in soup.find_all(True):
             if 'style' in t.attrs:
                 del t['style']
-        # Remove redundant link list on root page
-        if page_path.name == 'index.md' and page.children:
-            self._remove_redundant_root_list(soup, [slugify(fmap[c].stem) for c in page.children if c in fmap])
+        # Keep root-page index visible (do not remove lists)
         # Images
         downloads: List[Path] = []
         for img in soup.find_all('img'):
@@ -311,21 +309,60 @@ class Writer:
     def __init__(self, cfg: Config):
         self.cfg = cfg
 
+    @staticmethod
+    def _has_number_prefix(title: str) -> bool:
+        return bool(re.match(r"^\d+(?:\.\d+)*\s+", title.strip()))
+
+    def _compute_numbering(self, pages: Dict[str, Page], root_id: str) -> Dict[str, str]:
+        """Assign numbering for two levels: N.0 for parent with children, N.i for its children.
+        Leaf at top-level gets N.
+        """
+        nums: Dict[str, str] = {}
+        top = pages.get(root_id)
+        if not top:
+            return nums
+        for i, pid in enumerate(top.children, start=1):
+            child = pages[pid]
+            if child.children:
+                nums[pid] = f"{i}.0"
+                for j, gcid in enumerate(child.children, start=1):
+                    nums[gcid] = f"{i}.{j}"
+            else:
+                nums[pid] = f"{i}"
+        return nums
+
     def write_pages(self, pages: Dict[str, Page], fmap: Dict[str, Path], proc: Processor, root_id: str) -> None:
         self.cfg.docs_dir.mkdir(parents=True, exist_ok=True)
+        numbering = self._compute_numbering(pages, root_id)
         for pid, page in pages.items():
             rel = fmap[pid]
             absf = self.cfg.docs_dir / rel
             absf.parent.mkdir(parents=True, exist_ok=True)
             cleaned, _ = proc.clean_html(page, page.html, rel, fmap)
             md_text = proc.to_markdown(cleaned)
-            if pid == str(root_id) and not re.search(r"^# ", md_text, re.MULTILINE):
-                md_text = f"# {page.title}\n\n" + md_text
+            # Add/adjust H1 with numbering when appropriate
+            prefix = numbering.get(pid)
+            numbered_title = page.title
+            if prefix and not self._has_number_prefix(page.title):
+                numbered_title = f"{prefix} {page.title}"
+            # Ensure first line is a single H1 reflecting numbered_title for all pages
+            first_h1 = re.search(r"^#\s+.+", md_text, re.MULTILINE)
+            if first_h1:
+                # Replace only the first H1 occurrence
+                md_text = re.sub(r"^#\s+.+", f"# {numbered_title}", md_text, count=1, flags=re.MULTILINE)
+            else:
+                md_text = f"# {numbered_title}\n\n" + md_text
             absf.write_text(md_text, encoding='utf-8')
 
     def generate_nav(self, pages: Dict[str, Page], fmap: Dict[str, Path], root_id: str) -> List:
+        numbering = self._compute_numbering(pages, root_id)
+
         def item(pid: str) -> Dict:
-            return {pages[pid].title: str(fmap[pid])}
+            title = pages[pid].title
+            prefix = numbering.get(pid)
+            if prefix and not self._has_number_prefix(title):
+                title = f"{prefix} {title}"
+            return {title: str(fmap[pid])}
 
         def build(pid: str) -> List:
             arr: List = []
@@ -410,4 +447,3 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
-
