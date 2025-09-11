@@ -207,7 +207,7 @@ class Processor:
                     continue
                 if after_root:
                     segs.append(slugify(anc['title']))
-            filename = 'index.md' if pid == str(root_id) else f"{page.slug}-{pid}.md"
+            filename = 'overview.md' if pid == str(root_id) else f"{page.slug}-{pid}.md"
             m[pid] = (Path(*segs) / filename) if segs else Path(filename)
         return m
 
@@ -354,6 +354,38 @@ class Writer:
                 md_text = f"# {numbered_title}\n\n" + md_text
             absf.write_text(md_text, encoding='utf-8')
 
+        # Write a generated landing page with category boxes
+        self._write_homepage(pages, fmap, root_id)
+
+    def _write_homepage(self, pages: Dict[str, Page], fmap: Dict[str, Path], root_id: str) -> None:
+        root = pages.get(root_id)
+        if not root:
+            return
+        site_title = root.title or "Documentation"
+        tiles: List[str] = []
+        for cid in root.children:
+            if cid not in fmap or cid not in pages:
+                continue
+            title = pages[cid].title
+            href = str(fmap[cid]).replace('\\\\', '/')
+            tiles.append(
+                (
+                    "<a class=\"category-card\" href=\"{href}\">"
+                    "<div class=\"card-title\">{title}</div>"
+                    "<div class=\"card-cta\">Explore →</div>"
+                    "</a>"
+                ).format(href=href, title=title)
+            )
+        grid_html = "\n".join(tiles)
+        homepage_md = (
+            f"# {site_title}\n\n"
+            "Welcome. Choose a category to get started:\n\n"
+            "<div class=\"category-grid\">\n"
+            f"{grid_html}\n"
+            "</div>\n"
+        )
+        (self.cfg.docs_dir / "index.md").write_text(homepage_md, encoding="utf-8")
+
     def generate_nav(self, pages: Dict[str, Page], fmap: Dict[str, Path], root_id: str) -> List:
         def item(pid: str) -> Dict:
             # Left navigation should not include numbering
@@ -371,7 +403,7 @@ class Writer:
                     arr.append(item(cid))
             return arr
 
-        nav: List = [{"Home": str(fmap[root_id])}]
+        nav: List = [{"Home": "index.md"}, {"Overview": str(fmap[root_id])}]
         nav.extend(build(root_id))
         return nav
 
