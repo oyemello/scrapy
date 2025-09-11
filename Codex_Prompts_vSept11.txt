@@ -1,0 +1,65 @@
+Task: Implement a modular Confluence → MkDocs sync with CI/CD and Material theme
+
+Goal
+Build a Python tool that pulls a Confluence page tree and publishes it as a MkDocs site on GitHub Pages. The implementation must be modular, production‑friendly, and easy to maintain.
+
+Deliverables
+1) Python module: scripts/sync_confluence.py (single entrypoint, modular internals)
+2) MkDocs config: mkdocs.yml (Material theme; preserve existing settings but update nav)
+3) GitHub Actions workflow: .github/workflows/sync-and-deploy.yml (manual + daily schedule)
+4) requirements.txt including: requests, beautifulsoup4, markdownify, python-dotenv, PyYAML, mkdocs, mkdocs-material, pymdown-extensions, mkdocs-minify-plugin
+5) README.md instructions; .gitignore ignores .env
+
+Functional Requirements
+- Authenticates to Confluence Cloud with base URL, email, API token.
+- From a root page ID, recursively collects all descendant pages (DFS) and their HTML bodies.
+- Rewrites content:
+  - Downloads Confluence images/attachments locally under docs/assets/<page_id>/
+  - Rewrites internal Confluence links to relative links pointing at generated Markdown files
+  - Leaves external links untouched
+- Converts HTML → Markdown (markdownify), keeping tables and basic formatting.
+- Writes Markdown files under docs/, naming leaf files as <slug>-<page_id>.md; root becomes index.md.
+- Generates MkDocs navigation mirroring the Confluence hierarchy.
+- Updates mkdocs.yml to set nav only; preserves other keys (theme, palette, site_url, extra_css, etc.).
+- Summary logs printed at completion: page count, API request count, assets downloaded.
+
+Architecture Requirements (modular)
+- Config: Load/validate env (.env supported), expose base_url, email, token, root_page_id, docs_dir (default docs), mkdocs_path (default mkdocs.yml).
+- ConfluenceClient: request session reuse, retry with exponential backoff, 429 handling (Retry-After), methods: get_page(id), list_children(id), download_file(url, dest_path), get_stats().
+- PageProcessor: collect_tree(root_id) → dict[id→Page]; build_file_map(pages, root_id) → dict[id→Path]; process_html(page, html, page_path, file_map) → (html, [asset_paths]); helpers to detect Confluence URLs, rewrite links, compute relative paths; dedupe downloads with a set.
+- MkDocsWriter: write_pages(...), generate_nav(...), update_mkdocs_config(site_name, nav) that merges existing mkdocs.yml (if present) and only replaces nav.
+- Page dataclass with id, title, ancestors, html, children. Include a slug property using a slugify helper.
+
+Implementation Notes
+- Use pathlib.Path for filesystem logic.
+- Use markdownify for HTML → Markdown (heading_style="ATX", strip=None).
+- Use BeautifulSoup for parsing and link/image traversal.
+- Asset URL normalization: if src starts with "/", prefix base_url; else leave full URLs as‑is.
+- Relative link calculation: compute relative path from the current page’s directory to target Markdown/asset.
+- Internal link detection: match /pages/<id> or /spaces/<SPACE>/pages/<id> and map to file_map; preserve anchors.
+- Slug rules: lowercased, spaces/slashes → dash, remove non [a-z0-9-_], collapse dashes, strip ends; fallback "page".
+- Logging: INFO level; show progress during DFS; include counts in a final summary.
+- Exit codes: non‑zero on configuration or API errors; handle KeyboardInterrupt gracefully.
+
+Configuration
+- Env vars: CONFLUENCE_BASE_URL, CONFLUENCE_EMAIL, CONFLUENCE_API_TOKEN, CONFLUENCE_ROOT_PAGE_ID.
+- Optional: DOCS_DIR, MKDOCS_PATH.
+- Load .env without overriding pre‑set env (dotenv override=False).
+
+MkDocs
+- Theme: material; keep site_url, palette, features if already present.
+- Plugins: search, minify.
+- Do not clobber existing config besides nav.
+
+Workflow
+- Use existing .github/workflows/sync-and-deploy.yml triggers (workflow_dispatch + daily schedule).
+- Steps: checkout → setup Python → pip install → run scripts/sync_confluence.py → mkdocs build → deploy to gh-pages (peaceiris/actions‑gh‑pages) using GITHUB_TOKEN.
+
+Quality Gates
+- python -m py_compile scripts/sync_confluence.py passes.
+- Produces docs/index.md and additional Markdown pages.
+- mkdocs build succeeds with updated nav.
+- Asset paths and internal links resolve relatively within the built site.
+
+Context
+- There is an earlier monolithic prompt in Codex_Prompts.txt; this version supersedes it with a modular architecture and Material theme.

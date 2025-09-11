@@ -45,7 +45,23 @@ Create these in your GitHub repo Settings → Secrets and variables → Actions:
 - Nav mirrors the Confluence hierarchy from the chosen root.
 
 ## Repo structure
-- `scripts/sync_confluence.py` — scraper + converter
+- `scripts/sync_confluence.py` — scraper + converter (modular version, recommended)
+- `scripts/sync_confluence_vSep10.py` — previous monolithic implementation (kept for reference)
 - `docs/` — generated content (safe to commit)
 - `mkdocs.yml` — auto-updated with the nav by the script
 - `.github/workflows/sync-and-deploy.yml` — CI pipeline for Pages
+
+## Script versions
+- New (recommended): `scripts/sync_confluence.py`
+  - Modular design with `Config`, `ConfluenceClient`, `PageProcessor`, `MkDocsWriter`
+  - Better logging, retries, asset dedup, and safer path handling (pathlib)
+  - Preserves your existing `mkdocs.yml` and only updates `nav`
+  - Run: `python scripts/sync_confluence.py`
+
+- Legacy (Sep 10): `scripts/sync_confluence_vSep10.py`
+  - Single‑file procedural flow used in the initial POC
+  - Run: `python scripts/sync_confluence_vSep10.py`
+
+## Prompts
+- `Codex_Prompts_vSept11.txt` — prompt used to generate the new modular version.
+- `Codex_Prompts.txt` — prompt used for the initial POC version.
