@@ -1,0 +1,44 @@
+Task: Create a proof of concept (POC) project that scrapes Confluence pages and publishes them as a GitHub Pages site.
+
+Requirements:
+1. Write a Python script `scripts/sync_confluence.py` that:
+   - Authenticates with Confluence using base URL, email, and API token.
+   - Recursively fetches a given root page and its child pages.
+   - Converts pages to Markdown (handling images, links, and attachments).
+   - Saves output into a `docs/` folder.
+
+2. Use MkDocs to generate the static site.
+   - Include a `mkdocs.yml` config with site name = `scrapy`.
+   - Auto-generate nav from the Confluence tree.
+   - Enable search, but remove next/previous buttons.
+   - Keep light theme only.
+
+3. Set up GitHub Actions for CI/CD:
+   - Workflow file: `.github/workflows/deploy.yml`.
+   - Job: install dependencies, load secrets, run scraper, build MkDocs, deploy to GitHub Pages branch `gh-pages`.
+   - Triggers: manual dispatch + daily schedule.
+   - No push trigger.
+
+4. Secrets:
+   - Use GitHub Actions secrets in CI.
+   - Use a local `.env` file for local runs (`CONFLUENCE_BASE_URL`, `CONFLUENCE_EMAIL`, `CONFLUENCE_API_TOKEN`, `CONFLUENCE_ROOT_PAGE_ID`).
+   - Add `.env` to `.gitignore`.
+
+5. Supporting files:
+   - `requirements.txt` with all dependencies (requests, markdownify, python-dotenv, mkdocs, mkdocs-material, pymdown-extensions).
+   - `README.md` explaining setup, secrets, local run, and deployment steps.
+   - `.gitignore` excluding `.env`, `__pycache__`, and build artifacts.
+
+Validation:
+- `python -m py_compile scripts/sync_confluence.py` passes.
+- `.env` is ignored by Git and not tracked.
+- Workflow runs successfully and publishes to `https://<username>.github.io/scrapy/`.
+- Site builds with search enabled, no next/previous buttons, and clean header.
+
+Deliverables:
+- `scripts/sync_confluence.py`
+- `requirements.txt`
+- `mkdocs.yml`
+- `.github/workflows/deploy.yml`
+- `README.md`
+- `.gitignore`xs
