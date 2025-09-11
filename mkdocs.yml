@@ -27,3 +27,5 @@ nav:
   - Home: index.md
 extra_css:
   - assets/overrides.css
+extra_javascript:
+  - assets/number_toc.js
