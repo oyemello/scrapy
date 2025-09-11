@@ -20,6 +20,14 @@
   --md-accent-fg-color: #0d3b8e;
 }
 
+/* Ensure the same deep blue palette is used in dark scheme */
+[data-md-color-scheme="slate"] {
+    --md-primary-fg-color: #002663;
+    --md-primary-fg-color--light: #0d3b8e;
+    --md-primary-fg-color--dark: #001a44;
+    --md-accent-fg-color: #0d3b8e;
+}
+
 .md-header, .md-tabs { background-color: var(--md-primary-fg-color) !important; }
 .md-nav__title, .md-nav__link--active, .md-nav__link:focus, .md-nav__link:hover {
   color: var(--md-primary-fg-color) !important;
