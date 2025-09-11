@@ -8,10 +8,10 @@
       
       
       
-        <link rel="canonical" href="https://oyemello.github.io/scrapy/analysis-2-393381/">
+        <link rel="canonical" href="https://oyemello.github.io/scrapy/analysis-2-2523138/">
       
       
-        <link rel="prev" href="../analysis-131318/">
+        <link rel="prev" href="../analysis-1-131318/">
       
       
       
@@ -291,11 +291,11 @@
   
   
     <li class="md-nav__item">
-      <a href="../analysis-131318/" class="md-nav__link">
+      <a href="../analysis-1-131318/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Analysis
+    Analysis 1
   </span>
   
 
@@ -362,15 +362,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#problem-statements" class="md-nav__link">
-    <span class="md-ellipsis">
-      Problem statements
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#solutions" class="md-nav__link">
     <span class="md-ellipsis">
       Solutions
@@ -421,15 +412,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#problem-statements" class="md-nav__link">
-    <span class="md-ellipsis">
-      Problem statements
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#solutions" class="md-nav__link">
     <span class="md-ellipsis">
       Solutions
@@ -461,21 +443,21 @@
 <thead>
 <tr>
 <th><strong>Team</strong></th>
-<th></th>
+<th>Finance IT Operations</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><strong>Team members</strong></td>
-<td></td>
+<td>Alex Johnson, Priya Mehta, Sarah Kim, Tom Nguyen</td>
 </tr>
 <tr>
 <td><strong>Date</strong></td>
-<td></td>
+<td>Sept 11, 2025</td>
 </tr>
 </tbody>
 </table>
-<h2 id="problem-statements">Problem statements</h2>
+<p><img alt="image-20250911-183030.png" src="../assets/2523138/image-20250911-183030.png" />## Problem statements</p>
 <table>
 <thead>
 <tr>
@@ -488,11 +470,11 @@
 </thead>
 <tbody>
 <tr>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
+<td>Delayed customer refunds</td>
+<td>Inaccurate financial forecasts</td>
+<td>Slow credit card transaction processing</td>
+<td>High number of compliance violations</td>
+<td>High operational costs in finance IT</td>
 </tr>
 <tr>
 <td><strong>Whys</strong></td>
@@ -502,11 +484,11 @@
 <td><strong>Whys</strong></td>
 </tr>
 <tr>
-<td>*  *  *</td>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
+<td>* Refund requests sit in pending status too long * Manual approval needed for all cases * No automated rules to classify low-risk refunds * Legacy workflow tool doesn’t support automation * No budget allocated for upgrading refund system</td>
+<td>* Forecasts deviate heavily from actuals * Data sources are inconsistent * Different teams use different spreadsheet templates * No centralized forecasting tool * Lack of governance on financial planning processes</td>
+<td>* Customers experience long wait times for payments to post * Batch processing runs only twice a day * System not designed for real-time updates * Core payment engine outdated and hard to scale * Upgrades deprioritized due to budget constraints</td>
+<td>* Reports often miss required fields * Teams manually prepare compliance submissions * No validation checks before sending to regulators * Compliance rules are complex and frequently updated * No automated monitoring or rule engine in place</td>
+<td>* Monthly cloud bills are increasing * Multiple unused instances kept running * No cost monitoring dashboards * Responsibility for cleanup not clearly assigned * Lack of FinOps (financial operations) practices in team</td>
 </tr>
 <tr>
 <td><strong>Final problem statement</strong></td>
@@ -516,7 +498,7 @@
 <td></td>
 </tr>
 <tr>
-<td></td>
+<td>Costs are high because there’s no ownership or monitoring framework for managing cloud resources.</td>
 <td></td>
 <td></td>
 <td></td>
@@ -536,16 +518,34 @@
 </thead>
 <tbody>
 <tr>
-<td></td>
-<td></td>
-<td>IN PROGRESS/COMPLETE</td>
-<td></td>
+<td>Automate low-risk refund approvals</td>
+<td>Priya Mehta</td>
+<td>IN PROGRESS</td>
+<td>Build rules engine for refunds under $1000</td>
 </tr>
 <tr>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
+<td>Implement centralized forecasting tool</td>
+<td>Alex Johnson</td>
+<td>NOT STARTED</td>
+<td>Evaluate vendor options (Anaplan, Workday)</td>
+</tr>
+<tr>
+<td>Upgrade payment system to real-time</td>
+<td>Tom Nguyen</td>
+<td>NOT STARTED</td>
+<td>Draft architecture plan for replacing batch engine</td>
+</tr>
+<tr>
+<td>Add compliance validation automation</td>
+<td>Sarah Kim</td>
+<td>COMPLETE</td>
+<td>Integrated validation checks before submissions</td>
+</tr>
+<tr>
+<td>Establish FinOps monitoring &amp; ownership</td>
+<td>DevOps Team</td>
+<td>IN PROGRESS</td>
+<td>Create dashboards, assign resource cleanup roles</td>
 </tr>
 </tbody>
 </table>
@@ -595,7 +595,7 @@
     </div>
     
     
-    <script id="__config" type="application/json">{"base": "..", "features": ["navigation.tracking", "search.highlight", "search.suggest", "content.code.copy"], "search": "../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    <script id="__config" type="application/json">{"base": "..", "features": ["navigation.tracking", "navigation.sections", "navigation.expand", "search.highlight", "search.suggest", "content.code.copy"], "search": "../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
       <script src="../assets/javascripts/bundle.081f42fc.min.js"></script>

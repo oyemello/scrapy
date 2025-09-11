@@ -8,13 +8,13 @@
       
       
       
-        <link rel="canonical" href="https://oyemello.github.io/scrapy/analysis-131318/">
+        <link rel="canonical" href="https://oyemello.github.io/scrapy/analysis-1-131318/">
       
       
         <link rel="prev" href="../software-architecture-review-65735/">
       
       
-        <link rel="next" href="../analysis-2-393381/">
+        <link rel="next" href="../analysis-2-2523138/">
       
       
       <link rel="icon" href="../assets/images/favicon.png">
@@ -22,7 +22,7 @@
     
     
       
-        <title>Analysis - scrapy</title>
+        <title>Analysis 1 - scrapy</title>
       
     
     
@@ -112,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Analysis
+              Analysis 1
             
           </span>
         </div>
@@ -304,7 +304,7 @@
           
   
   <span class="md-ellipsis">
-    Analysis
+    Analysis 1
   </span>
   
 
@@ -315,7 +315,7 @@
         
   
   <span class="md-ellipsis">
-    Analysis
+    Analysis 1
   </span>
   
 
@@ -338,15 +338,6 @@
   <a href="#overview" class="md-nav__link">
     <span class="md-ellipsis">
       Overview
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#problem-statements" class="md-nav__link">
-    <span class="md-ellipsis">
-      Problem statements
     </span>
   </a>
   
@@ -376,7 +367,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../analysis-2-393381/" class="md-nav__link">
+      <a href="../analysis-2-2523138/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -423,15 +414,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#problem-statements" class="md-nav__link">
-    <span class="md-ellipsis">
-      Problem statements
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#solutions" class="md-nav__link">
     <span class="md-ellipsis">
       Solutions
@@ -455,7 +437,7 @@
                   
 
 
-  <h1>Analysis</h1>
+  <h1>Analysis 1</h1>
 
 <h2 id="overview">Overview</h2>
 <p>Discover and resolve problems with your team by following the instructions for the <a href="https://www.atlassian.com/team-playbook/plays/5-whys">5 Whys Analysis Play</a>.</p>
@@ -463,21 +445,21 @@
 <thead>
 <tr>
 <th><strong>Team</strong></th>
-<th></th>
+<th>Finance Systems Squad</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><strong>Team members</strong></td>
-<td></td>
+<td>Sarah Kim, John Rivera, Priya Mehta, Emily Carter</td>
 </tr>
 <tr>
 <td><strong>Date</strong></td>
-<td></td>
+<td>Sept 11, 2025</td>
 </tr>
 </tbody>
 </table>
-<h2 id="problem-statements">Problem statements</h2>
+<p><img alt="image-20250911-183050.png" src="../assets/131318/image-20250911-183050.png" />## Problem statements</p>
 <table>
 <thead>
 <tr>
@@ -490,11 +472,11 @@
 </thead>
 <tbody>
 <tr>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
+<td>Delayed month-end financial reports</td>
+<td>Failed reconciliation of bank transactions</td>
+<td>Frequent duplicate invoices</td>
+<td>High support ticket volume for payroll issues</td>
+<td>Audit trail gaps in system</td>
 </tr>
 <tr>
 <td><strong>Whys</strong></td>
@@ -504,11 +486,11 @@
 <td><strong>Whys</strong></td>
 </tr>
 <tr>
-<td>*  *  *</td>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
+<td>* Reports take too long to generate * Database queries are inefficient * Missing indexes on transaction-heavy tables * Schema wasn’t updated after onboarding new clients * No regular database performance review process</td>
+<td>* Transactions are mismatched or missing * External bank API occasionally drops requests * No retry or queuing mechanism in place * Integration design assumed stable API availability * Lack of resilience planning during architecture review</td>
+<td>* Duplicate invoices appear in the system * Validation checks are missing at submission * Invoice module relies on manual data entry * No deduplication rules or automated checks * Business rules for invoice uniqueness not defined clearly</td>
+<td>* Employees frequently report incorrect payroll amounts * Calculation errors in payroll processing * Outdated formulas not updated for new tax rules * No automated tax table update mechanism * Manual dependency on HR team to update tax logic</td>
+<td>* Some actions are not logged in the system * Developers didn’t add logging to all critical functions * No central standard for what events must be logged * Logging wasn’t prioritized during initial development * Compliance requirements were not fully captured at the start</td>
 </tr>
 <tr>
 <td><strong>Final problem statement</strong></td>
@@ -518,7 +500,7 @@
 <td></td>
 </tr>
 <tr>
-<td></td>
+<td>Month-end reports are delayed because the database was not optimized to handle scaled transaction volumes, and there is no regular performance tuning process.</td>
 <td></td>
 <td></td>
 <td></td>
@@ -538,16 +520,34 @@
 </thead>
 <tbody>
 <tr>
-<td></td>
-<td></td>
-<td>IN PROGRESS/COMPLETE</td>
-<td></td>
+<td>Optimize queries and add DB indexes</td>
+<td>Priya Mehta</td>
+<td>IN PROGRESS</td>
+<td>Identify slow queries, add indexes, run benchmarks</td>
 </tr>
 <tr>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
+<td>Establish quarterly DB performance review</td>
+<td>John Rivera</td>
+<td>NOT STARTED</td>
+<td>Add review to sprint backlog, assign DBA</td>
+</tr>
+<tr>
+<td>Improve reconciliation automation</td>
+<td>Sarah Kim</td>
+<td>COMPLETE</td>
+<td>Deployed new script to auto-match 85% of entries</td>
+</tr>
+<tr>
+<td>Add invoice validation checks</td>
+<td>Emily Carter</td>
+<td>IN PROGRESS</td>
+<td>Implement duplicate detection before posting</td>
+</tr>
+<tr>
+<td>Strengthen audit logging framework</td>
+<td>DevOps Team</td>
+<td>NOT STARTED</td>
+<td>Standardize log format, route to central monitoring</td>
 </tr>
 </tbody>
 </table>
@@ -597,7 +597,7 @@
     </div>
     
     
-    <script id="__config" type="application/json">{"base": "..", "features": ["navigation.tracking", "search.highlight", "search.suggest", "content.code.copy"], "search": "../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    <script id="__config" type="application/json">{"base": "..", "features": ["navigation.tracking", "navigation.sections", "navigation.expand", "search.highlight", "search.suggest", "content.code.copy"], "search": "../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
       <script src="../assets/javascripts/bundle.081f42fc.min.js"></script>

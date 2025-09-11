@@ -14,7 +14,7 @@
         <link rel="prev" href="../spent-planning-checklist-163952/">
       
       
-        <link rel="next" href="../analysis-131318/">
+        <link rel="next" href="../analysis-1-131318/">
       
       
       <link rel="icon" href="../assets/images/favicon.png">
@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#ud83dudccb-overview" class="md-skip">
+        <a href="#overview" class="md-skip">
           Skip to content
         </a>
       
@@ -315,9 +315,9 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#ud83dudccb-overview" class="md-nav__link">
+  <a href="#overview" class="md-nav__link">
     <span class="md-ellipsis">
-      \uD83D\uDCCB Overview
+      Overview
     </span>
   </a>
   
@@ -383,11 +383,11 @@
   
   
     <li class="md-nav__item">
-      <a href="../analysis-131318/" class="md-nav__link">
+      <a href="../analysis-1-131318/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Analysis
+    Analysis 1
   </span>
   
 
@@ -403,7 +403,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../analysis-2-393381/" class="md-nav__link">
+      <a href="../analysis-2-2523138/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -441,9 +441,9 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#ud83dudccb-overview" class="md-nav__link">
+  <a href="#overview" class="md-nav__link">
     <span class="md-ellipsis">
-      \uD83D\uDCCB Overview
+      Overview
     </span>
   </a>
   
@@ -515,13 +515,13 @@
 <thead>
 <tr>
 <th><strong>Architecture review date</strong></th>
-<th></th>
+<th>Sept 11, 2025</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><strong>Project lead</strong></td>
-<td></td>
+<td>Sarah Kim (Finance Systems Architect)</td>
 </tr>
 <tr>
 <td><strong>On this page</strong></td>
@@ -529,7 +529,8 @@
 </tr>
 </tbody>
 </table>
-<h2 id="ud83dudccb-overview">\uD83D\uDCCB Overview</h2>
+<h2 id="overview">Overview</h2>
+<p>This review covers the financial transaction system that supports reporting, reconciliation, and compliance with quarterly audits. The focus is on scalability, security, and integration with external banking APIs.</p>
 <h2 id="architecture-issues">Architecture issues</h2>
 <table>
 <thead>
@@ -542,22 +543,28 @@
 </thead>
 <tbody>
 <tr>
-<td></td>
-<td></td>
-<td>HIGH / MEDIUM / LOW</td>
-<td></td>
+<td>Slow report generation under load</td>
+<td>Delays quarter-end financial close, impacts regulatory deadlines</td>
+<td>HIGH</td>
+<td>Current queries not optimized for large datasets</td>
 </tr>
 <tr>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
+<td>API throttling with external banks</td>
+<td>Failed transaction sync, customer dissatisfaction</td>
+<td>HIGH</td>
+<td>Need retry/queuing mechanism</td>
 </tr>
 <tr>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
+<td>Legacy authentication system</td>
+<td>Security vulnerabilities, audit compliance risks</td>
+<td>MEDIUM</td>
+<td>Migrate to OAuth 2.0</td>
+</tr>
+<tr>
+<td>Inconsistent error logging</td>
+<td>Hard to trace reconciliation errors, slows audits</td>
+<td>LOW</td>
+<td>Standardize logging format</td>
 </tr>
 </tbody>
 </table>
@@ -571,16 +578,24 @@
 </thead>
 <tbody>
 <tr>
-<td></td>
-<td></td>
+<td>Sarah Kim</td>
+<td>Finance Systems Architect</td>
 </tr>
 <tr>
-<td></td>
-<td></td>
+<td>John Rivera</td>
+<td>CTO</td>
 </tr>
 <tr>
-<td></td>
-<td></td>
+<td>Priya Mehta</td>
+<td>Backend Engineer</td>
+</tr>
+<tr>
+<td>Emily Carter</td>
+<td>Compliance &amp; Risk Officer</td>
+</tr>
+<tr>
+<td>CFO’s Office</td>
+<td>Business stakeholder</td>
 </tr>
 </tbody>
 </table>
@@ -596,117 +611,44 @@
 </thead>
 <tbody>
 <tr>
-<td><strong>e.g., Availability</strong></td>
-<td></td>
-<td></td>
-<td></td>
+<td><strong>Availability</strong></td>
+<td>System uptime for financial services</td>
+<td>99.95% uptime, &lt; 2 hours downtime per quarter</td>
+<td>Must meet SOX compliance</td>
 </tr>
 <tr>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-<p>Software quality attributes</p>
-<table>
-<thead>
-<tr>
-<th></th>
-<th><strong>Definition</strong></th>
-<th><strong>Key success metrics</strong></th>
-<th><strong>Notes</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Efficiency</strong></td>
-<td></td>
-<td></td>
-<td></td>
+<td>Security</td>
+<td>Protection of sensitive financial data</td>
+<td>No critical vulnerabilities, passed audits</td>
+<td>Use encryption at rest + in transit</td>
 </tr>
 <tr>
-<td><strong>Extensibility</strong></td>
-<td></td>
-<td></td>
-<td></td>
+<td>Scalability</td>
+<td>Ability to handle peak loads (quarter-end)</td>
+<td>Handle 5x normal traffic without degradation</td>
+<td>Stress test before Q4 close</td>
 </tr>
 <tr>
-<td><strong>Functionality</strong></td>
-<td></td>
-<td></td>
-<td></td>
+<td>Performance</td>
+<td>Transaction &amp; report latency</td>
+<td>&lt; 2s for transactions, &lt; 5s for reports</td>
+<td>Optimize queries + caching</td>
 </tr>
 <tr>
-<td><strong>Integrity</strong></td>
-<td></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td><strong>Interoperability</strong></td>
-<td></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td><strong>Maintainability</strong></td>
-<td></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td><strong>Modifiability</strong></td>
-<td></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td><strong>Performance</strong></td>
-<td></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td><strong>Portability</strong></td>
-<td></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td><strong>Reliability</strong></td>
-<td></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td><strong>Scalability</strong></td>
-<td></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td><strong>Security</strong></td>
-<td></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td><strong>Usability</strong></td>
-<td></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td><strong>Other</strong></td>
-<td></td>
-<td></td>
-<td></td>
+<td>Auditability</td>
+<td>Ability to track &amp; verify transactions</td>
+<td>100% traceability, standardized logs</td>
+<td>Key for compliance audits</td>
 </tr>
 </tbody>
 </table>
 <h2 id="goals">Goals</h2>
+<ul>
+<li>Improve performance of quarterly financial reports by 40%</li>
+<li>Enhance security posture with modern authentication and encryption</li>
+<li>Increase system scalability to handle 5x traffic during peak reporting cycles</li>
+<li>Standardize error logging and monitoring for audit readiness</li>
+</ul>
 <h2 id="next-steps">Next steps</h2>
 <table>
 <thead>
@@ -722,19 +664,35 @@
 <tbody>
 <tr>
 <td>1</td>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
+<td>Reporting Optimization</td>
+<td>Refactor SQL queries and add caching layer</td>
+<td>3 Sprints</td>
+<td>Technical design doc</td>
+<td>Nov 2025</td>
 </tr>
 <tr>
 <td>2</td>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
+<td>API Resilience</td>
+<td>Add retry/queuing for external bank API integration</td>
+<td>2 Sprints</td>
+<td>Integration spec</td>
+<td>Oct 2025</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Authentication Upgrade</td>
+<td>Migrate from legacy auth to OAuth 2.0 + MFA</td>
+<td>4 Sprints</td>
+<td>Security migration guide</td>
+<td>Dec 2025</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Logging Standardization</td>
+<td>Implement structured logs and central monitoring system</td>
+<td>3 Sprints</td>
+<td>Logging &amp; monitoring checklist</td>
+<td>Oct 2025</td>
 </tr>
 </tbody>
 </table>
@@ -784,7 +742,7 @@
     </div>
     
     
-    <script id="__config" type="application/json">{"base": "..", "features": ["navigation.tracking", "search.highlight", "search.suggest", "content.code.copy"], "search": "../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    <script id="__config" type="application/json">{"base": "..", "features": ["navigation.tracking", "navigation.sections", "navigation.expand", "search.highlight", "search.suggest", "content.code.copy"], "search": "../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
       <script src="../assets/javascripts/bundle.081f42fc.min.js"></script>
