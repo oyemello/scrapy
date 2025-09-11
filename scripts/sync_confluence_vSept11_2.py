@@ -13,6 +13,7 @@ from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple, Set
 from urllib.parse import urlparse, unquote
+import html as htmlesc
 
 import requests
 from bs4 import BeautifulSoup, Tag
@@ -366,12 +367,15 @@ class Writer:
         # Add a tile for the root section itself (e.g., "John Doe Company") if it has children
         if root.children and root_id in fmap:
             root_href = str(fmap[root_id]).replace('\\\\', '/')
+            # Extract a short description from root page HTML
+            root_desc = self._first_paragraph_text(root.html)
             tiles.append(
                 (
                     "<a class=\"category-card\" href=\"{href}\">"
                     "  <div class=\"card-title\">{title}</div>"
+                    "  <div class=\"card-desc\">{desc}</div>"
                     "</a>"
-                ).format(href=root_href, title=site_title)
+                ).format(href=root_href, title=htmlesc.escape(site_title), desc=htmlesc.escape(root_desc))
             )
         for cid in root.children:
             if cid not in fmap or cid not in pages:
@@ -381,12 +385,14 @@ class Writer:
                 continue
             title = pages[cid].title
             href = str(fmap[cid]).replace('\\\\', '/')
+            desc = self._first_paragraph_text(pages[cid].html)
             tiles.append(
                 (
                     "<a class=\"category-card\" href=\"{href}\">"
                     "  <div class=\"card-title\">{title}</div>"
+                    "  <div class=\"card-desc\">{desc}</div>"
                     "</a>"
-                ).format(href=href, title=title)
+                ).format(href=href, title=htmlesc.escape(title), desc=htmlesc.escape(desc))
             )
         grid_html = "\n".join(tiles)
         homepage_md = (
@@ -397,6 +403,20 @@ class Writer:
             "</div>\n"
         )
         (self.cfg.docs_dir / "index.md").write_text(homepage_md, encoding="utf-8")
+
+    def _first_paragraph_text(self, html: str) -> str:
+        """Extract first non-empty paragraph-like text, trimmed to ~160 chars."""
+        try:
+            soup = BeautifulSoup(html or "", 'html.parser')
+            # Prefer paragraphs, fall back to list items or headings
+            candidates = soup.find_all(['p', 'li', 'h2', 'h3'], limit=10)
+            for el in candidates:
+                txt = (el.get_text(" ", strip=True) or "").strip()
+                if len(txt) >= 8:
+                    return (txt[:157] + '…') if len(txt) > 160 else txt
+        except Exception:
+            pass
+        return ""
 
     def generate_nav(self, pages: Dict[str, Page], fmap: Dict[str, Path], root_id: str) -> List:
         def item(pid: str) -> Dict:
