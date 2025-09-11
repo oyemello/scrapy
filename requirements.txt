@@ -5,4 +5,5 @@ PyYAML==6.0.2
 mkdocs==1.6.0
 mkdocs-material==9.5.25
 pymdown-extensions==10.8.1
+mkdocs-minify-plugin==0.7.2
 python-dotenv==1.0.1
