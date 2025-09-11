@@ -1,0 +1,92 @@
+Task: Build a Confluence → MkDocs site with a custom landing page and GitHub Pages deploy (vSept11.2)
+
+Goal
+Create a repo that syncs a Confluence page tree into Markdown, generates a Material for MkDocs site with a clean landing page, and deploys to GitHub Pages. Match the behavior described below exactly.
+
+Deliverables
+1) Python: `scripts/sync_confluence_vSept11_2.py` (single entrypoint)
+2) MkDocs: `mkdocs.yml` (Material theme with light/dark toggle), `docs/` output
+3) Styling: `docs/assets/overrides.css` (minor UI tweaks)
+4) CI/CD: `.github/workflows/sync-and-deploy.yml` (manual + daily schedule)
+5) Env + deps: `.env` (local only), `requirements.txt`, `.gitignore`
+
+Functional Requirements
+- Auth: Confluence Cloud via base URL, email, API token.
+- Root traversal: Fetch root page and all descendants (depth-first), including HTML bodies and ancestor info.
+- Conversion/cleanup:
+  - Normalize headings: only first <h1> remains <h1>; others demoted to <h2>.
+  - Strip inline styles from all elements.
+  - Download images/attachments to `docs/assets/<page_id>/...` and rewrite <img src> to relative paths from the page’s folder.
+  - Rewrite internal Confluence links to relative Markdown links when the target is part of the exported tree (detect `/pages/<id>` or `/spaces/<SPACE>/pages/<id>`). Preserve anchors.
+  - Treat Confluence assets as those with relative `/wiki/` or `/download/` paths, or absolute URLs on the configured host.
+- Output layout:
+  - Write the root page content to `docs/overview.md` (not `index.md`).
+  - Generate a custom landing page `docs/index.md` with a responsive grid of “category” cards:
+    - Include a card for the root section (e.g., “John Doe Company”) linking to `overview/`.
+    - Include cards only for top‑level pages that have children (main sections). No leaf pages.
+    - Cards show only the section title (no icon, description, or “Explore” copy).
+    - Convert generated `.md` links to built URLs with trailing slash (e.g., `section-123.md` → `section-123/`).
+  - Apply optional numbering to page titles (H1 only): top‑level parents with children get `N.0`; their children get `N.i`. Do not number left navigation labels.
+- Navigation (mkdocs.yml):
+  - First items: `Home: index.md`, then `Overview: overview.md`, followed by the full Confluence tree starting at the root.
+  - Do not include numbering in nav labels.
+- MkDocs theme:
+  - Material theme with features: navigation.tracking, navigation.sections, navigation.expand, search.highlight, search.suggest, content.code.copy.
+  - Light/dark toggle enabled via two palettes (default and slate) with toggles.
+  - Include `extra_css: [assets/overrides.css]` only. No extra JS for theme switching.
+- CI/CD:
+  - Workflow installs dependencies, runs the sync script, builds `mkdocs build`, and deploys to `gh-pages` using `peaceiris/actions-gh-pages` with `GITHUB_TOKEN`.
+  - Triggers: `workflow_dispatch` and a daily cron schedule.
+
+Python Implementation Details (sync_confluence_vSept11_2.py)
+- Classes and responsibilities:
+  - `Config`: loads/validates env (.env supported), exposes `base_url`, `email`, `token`, `root_page_id`, optional `docs_dir` and `mkdocs_path`.
+  - `ConfluenceClient`: session reuse, `_req` with retry/backoff and 429 handling; methods: `_get` JSON, `get_page`, `list_children`, `download` (streaming), `is_confluence_asset`, `stats`.
+  - `Processor`: `collect` DFS traversal from root; `build_map` to map ids → output paths (root → `overview.md`, others → `<slug>-<id>.md`); `clean_html` (BeautifulSoup), `_download_asset`, `_rewrite_link`, `to_markdown` (markdownify with `heading_style='ATX'`, `strip=None`).
+  - `Writer`: writes all Markdown files; enforces/updates first H1; computes numbering (N.0 for parents with children; N.i for their children) and adds numbers to page H1 only; generates landing `index.md` with title‑only cards; builds nav (Home, Overview, then tree); updates mkdocs.yml (merge existing keys, set `nav`).
+- Key behaviors:
+  - Asset deduplication via a `set` to avoid repeated downloads.
+  - Link rewriting computes relative paths from the page’s directory to the target.
+  - Windows path normalization for links (`'\'` → `'/'`).
+  - Defensive checks to avoid `KeyError`/`None` access while traversing.
+
+MkDocs Configuration (mkdocs.yml)
+- Site name: `scrapy`; `docs_dir: docs`.
+- Theme: `material`; features as listed above.
+- Palette (toggle visible):
+  - Light: `scheme: default`, `primary: blue`, `accent: indigo`, with toggle → dark.
+  - Dark: `scheme: slate`,  `primary: blue`, `accent: indigo`, with toggle → light.
+- `extra_css:` include `assets/overrides.css`.
+
+Styling (docs/assets/overrides.css)
+- Keep simple tweaks only (no theme overrides that hide or duplicate the toggle):
+  - Hide top tabs; hide footer prev/next; tighten max width on very large screens.
+  - Landing page grid `.category-grid` and `.category-card` styles; use Material CSS variables so cards adapt to light/dark.
+  - Ensure primary sidebar remains visible on desktop breakpoints.
+
+Workflow (CI)
+- `.github/workflows/sync-and-deploy.yml`:
+  - Steps: checkout → setup Python → `pip install -r requirements.txt` → run sync → `mkdocs build --strict` → deploy `./site` to `gh-pages` with `peaceiris/actions-gh-pages` and `GITHUB_TOKEN`.
+  - Triggers: `workflow_dispatch` and a daily cron.
+  - Env for sync step from Actions secrets: `CONFLUENCE_BASE_URL`, `CONFLUENCE_EMAIL`, `CONFLUENCE_API_TOKEN`, `CONFLUENCE_ROOT_PAGE_ID`.
+
+Environment + Dependencies
+- Local `.env` (ignored by git):
+  - `CONFLUENCE_BASE_URL`, `CONFLUENCE_EMAIL`, `CONFLUENCE_API_TOKEN`, `CONFLUENCE_ROOT_PAGE_ID`
+  - Optional: `DOCS_DIR`, `MKDOCS_PATH`
+- `requirements.txt` includes:
+  - `requests`, `beautifulsoup4`, `markdownify`, `python-dotenv`, `PyYAML`
+  - `mkdocs`, `mkdocs-material`, `mkdocs-minify-plugin`
+
+Quality Gates
+- `python -m py_compile scripts/sync_confluence_vSept11_2.py` passes.
+- Running the script generates:
+  - `docs/index.md` (cards for root + main sections only)
+  - `docs/overview.md` (root content)
+  - Markdown pages for all descendants; assets under `docs/assets/<page_id>/...`.
+- `mkdocs build` succeeds; nav shows Home, Overview, then full tree; H1 titles show numbering where applicable.
+- GitHub Actions run completes and publishes to `gh-pages`.
+
+Notes
+- Do not include any custom JavaScript for theme switching; rely solely on Material’s palette toggle.
+- Do not number items in the left navigation; numbering is applied to page H1 titles only (per the N.0 / N.i rule).
