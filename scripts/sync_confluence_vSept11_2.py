@@ -367,15 +367,14 @@ class Writer:
         # Add a tile for the root section itself (e.g., "John Doe Company") if it has children
         if root.children and root_id in fmap:
             root_href = str(fmap[root_id]).replace('\\\\', '/')
-            # Extract a short description from root page HTML
-            root_desc = self._first_paragraph_text(root.html)
+            if root_href.endswith('.md'):
+                root_href = root_href[:-3] + '/'
             tiles.append(
                 (
                     "<a class=\"category-card\" href=\"{href}\">"
                     "  <div class=\"card-title\">{title}</div>"
-                    "  <div class=\"card-desc\">{desc}</div>"
                     "</a>"
-                ).format(href=root_href, title=htmlesc.escape(site_title), desc=htmlesc.escape(root_desc))
+                ).format(href=root_href, title=htmlesc.escape(site_title))
             )
         for cid in root.children:
             if cid not in fmap or cid not in pages:
@@ -385,14 +384,14 @@ class Writer:
                 continue
             title = pages[cid].title
             href = str(fmap[cid]).replace('\\\\', '/')
-            desc = self._first_paragraph_text(pages[cid].html)
+            if href.endswith('.md'):
+                href = href[:-3] + '/'
             tiles.append(
                 (
                     "<a class=\"category-card\" href=\"{href}\">"
                     "  <div class=\"card-title\">{title}</div>"
-                    "  <div class=\"card-desc\">{desc}</div>"
                     "</a>"
-                ).format(href=href, title=htmlesc.escape(title), desc=htmlesc.escape(desc))
+                ).format(href=href, title=htmlesc.escape(title))
             )
         grid_html = "\n".join(tiles)
         homepage_md = (
