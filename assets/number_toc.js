@@ -1,38 +1,47 @@
 (function() {
-  try {
-    var h1 = document.querySelector('main h1, article h1, .md-content h1');
-    if (!h1) return;
-    var m = (h1.textContent || '').trim().match(/^(\d+(?:\.\d+)*)\s+/);
-    if (!m) return;
-    var prefix = m[1];
+  function addTocNumbers() {
     var toc = document.querySelector('nav.md-nav--secondary');
     if (!toc) return;
 
-    // Number top-level TOC entries and their immediate children
-    var topItems = toc.querySelectorAll(':scope .md-nav__list > .md-nav__item');
-    var i = 1;
-    topItems.forEach(function(item) {
-      var link = item.querySelector(':scope > .md-nav__link');
-      if (link) {
-        var t = (link.textContent || '').trim();
-        if (!/^\d+(?:\.\d+)*\s+/.test(t)) {
-          link.textContent = prefix + '.' + i + ' ' + t;
+    // Determine optional page prefix from H1 (e.g., "3.1 Title")
+    var pagePrefix = '';
+    var h1 = document.querySelector('main h1, article h1, .md-content h1');
+    if (h1) {
+      var m = (h1.textContent || '').trim().match(/^(\d+(?:\.\d+)*)\s+/);
+      if (m) pagePrefix = m[1];
+    }
+
+    var topList = toc.querySelector(':scope .md-nav__list');
+    if (!topList) return;
+
+    function numberList(listEl, prefixParts) {
+      var idx = 1;
+      listEl.querySelectorAll(':scope > .md-nav__item').forEach(function(li) {
+        var link = li.querySelector(':scope > .md-nav__link');
+        if (link) {
+          var newParts = prefixParts.concat(idx);
+          var base = newParts.join('.');
+          var finalNumber = (pagePrefix ? pagePrefix + '.' : '') + base;
+          var text = (link.textContent || '').trim();
+          // Always enforce numbering on TOC entries
+          link.textContent = finalNumber + ' ' + text.replace(/^\d+(?:\.\d+)*\s+/, '');
         }
-      }
-      // Child level
-      var children = item.querySelectorAll(':scope .md-nav__item > .md-nav__link');
-      var j = 1;
-      children.forEach(function(cl) {
-        var ct = (cl.textContent || '').trim();
-        if (!/^\d+(?:\.\d+)*\s+/.test(ct)) {
-          cl.textContent = prefix + '.' + i + '.' + j + ' ' + ct;
-        }
-        j++;
+        var childList = li.querySelector(':scope > .md-nav__list');
+        if (childList) numberList(childList, prefixParts.concat(idx));
+        idx++;
       });
-      i++;
-    });
+    }
+
+    numberList(topList, []);
+  }
+
+  try {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', addTocNumbers);
+    } else {
+      addTocNumbers();
+    }
   } catch (e) {
     console.warn('TOC numbering failed:', e);
   }
 })();
-
