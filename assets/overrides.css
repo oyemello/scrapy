@@ -44,8 +44,8 @@
   border: 1px solid var(--md-primary-fg-color);
   border-radius: 10px;
   padding: 16px 18px;
-  background: #ffffff;
-  color: inherit;
+  background: var(--md-default-bg-color);
+  color: var(--md-default-fg-color);
   box-shadow: 0 1px 2px rgba(0,0,0,0.05);
   transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
 }
@@ -60,8 +60,5 @@
   font-weight: 600;
   margin: 0 0 6px 0;
 }
-.category-card .card-cta {
-  color: var(--md-primary-fg-color);
-  font-weight: 600;
-}
-.category-card .arrow-icon { margin-left: 6px; display: inline-flex; }
+.category-card .card-cta { display: none; }
+.category-card .arrow-icon { display: none; }
