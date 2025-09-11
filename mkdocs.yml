@@ -1,8 +1,25 @@
 site_name: scrapy
 site_url: https://oyemello.github.io/scrapy/
 theme:
-  name: mkdocs
-  prev_next_buttons_location: none
+  name: material
+  features:
+    - navigation.tracking
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+  palette:
+    - scheme: default
+      primary: blue
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - scheme: slate
+      primary: blue
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
 docs_dir: docs
 nav:
   - Home: index.md

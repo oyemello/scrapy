@@ -1,11 +1,12 @@
-/* Hide the primary nav items (left side of top navbar) */
-#navbar-collapse > ul.nav.navbar-nav { display: none !important; }
+/* Material for MkDocs tweaks */
 
-/* Hide Prev/Next buttons in the top navbar (keep Search) */
-.nav-link[rel="prev"],
-.nav-link[rel="next"] { display: none !important; }
+/* Hide top tabs if theme ever enables them */
+.md-tabs { display: none !important; }
 
-/* Optional: darken page background if theme attribute is not respected */
-html[data-bs-theme="dark"] body { background-color: #0b0f12; color: #e6e6e6; }
-html[data-bs-theme="dark"] .navbar { background-color: #111827 !important; }
-html[data-bs-theme="dark"] a { color: #93c5fd; }
+/* Hide Previous/Next navigation in footer */
+.md-footer__inner .md-footer-nav { display: none !important; }
+
+/* Optional: tighten content width on very large screens */
+@media (min-width: 1400px) {
+  .md-grid { max-width: 1100px; }
+}
