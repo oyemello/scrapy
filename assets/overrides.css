@@ -24,3 +24,9 @@
 .md-nav__title, .md-nav__link--active, .md-nav__link:focus, .md-nav__link:hover {
   color: var(--md-primary-fg-color) !important;
 }
+
+/* Ensure primary navigation is always visible on desktop */
+@media (min-width: 76.25em) { /* ≈1220px */
+  .md-sidebar--primary { display: block !important; }
+  nav.md-nav--primary { display: block !important; }
+}
