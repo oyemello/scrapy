@@ -369,21 +369,7 @@ class Writer:
             tiles.append(
                 (
                     "<a class=\"category-card\" href=\"{href}\">"
-                    "  <div class=\"card-top\">"
-                    "    <span class=\"card-icon\" aria-hidden=\"true\">"
-                    "      <svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\">"
-                    "        <path d=\"M3 7h5l2 2h11v8a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z\"/>"
-                    "      </svg>"
-                    "    </span>"
-                    "    <div class=\"card-title\">{title}</div>"
-                    "  </div>"
-                    "  <div class=\"card-cta\">Explore"
-                    "    <span class=\"arrow-icon\" aria-hidden=\"true\">"
-                    "      <svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\">"
-                    "        <path d=\"M5 12h14\"/><path d=\"M12 5l7 7-7 7\"/>"
-                    "      </svg>"
-                    "    </span>"
-                    "  </div>"
+                    "  <div class=\"card-title\">{title}</div>"
                     "</a>"
                 ).format(href=root_href, title=site_title)
             )
@@ -398,21 +384,7 @@ class Writer:
             tiles.append(
                 (
                     "<a class=\"category-card\" href=\"{href}\">"
-                    "  <div class=\"card-top\">"
-                    "    <span class=\"card-icon\" aria-hidden=\"true\">"
-                    "      <svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\">"
-                    "        <path d=\"M3 7h5l2 2h11v8a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z\"/>"
-                    "      </svg>"
-                    "    </span>"
-                    "    <div class=\"card-title\">{title}</div>"
-                    "  </div>"
-                    "  <div class=\"card-cta\">Explore"
-                    "    <span class=\"arrow-icon\" aria-hidden=\"true\">"
-                    "      <svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\">"
-                    "        <path d=\"M5 12h14\"/><path d=\"M12 5l7 7-7 7\"/>"
-                    "      </svg>"
-                    "    </span>"
-                    "  </div>"
+                    "  <div class=\"card-title\">{title}</div>"
                     "</a>"
                 ).format(href=href, title=title)
             )
