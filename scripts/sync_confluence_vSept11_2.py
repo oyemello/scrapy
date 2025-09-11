@@ -355,14 +355,9 @@ class Writer:
             absf.write_text(md_text, encoding='utf-8')
 
     def generate_nav(self, pages: Dict[str, Page], fmap: Dict[str, Path], root_id: str) -> List:
-        numbering = self._compute_numbering(pages, root_id)
-
         def item(pid: str) -> Dict:
-            title = pages[pid].title
-            prefix = numbering.get(pid)
-            if prefix and not self._has_number_prefix(title):
-                title = f"{prefix} {title}"
-            return {title: str(fmap[pid])}
+            # Left navigation should not include numbering
+            return {pages[pid].title: str(fmap[pid])}
 
         def build(pid: str) -> List:
             arr: List = []
