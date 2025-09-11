@@ -170,3 +170,7 @@
 }
 
 /* Dark mode inherits palette automatically */
+
+/* Ensure the palette toggle is always visible */
+.md-header__option[data-md-component="palette"] { display: inline-flex !important; align-items: center; }
+.md-header__option[data-md-component="palette"] .md-header__button { display: inline-flex !important; }
