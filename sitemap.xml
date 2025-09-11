@@ -16,12 +16,37 @@
          <changefreq>daily</changefreq>
     </url>
     <url>
+         <loc>https://oyemello.github.io/scrapy/jane-doe-company-2523155/</loc>
+         <lastmod>2025-09-11</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
          <loc>https://oyemello.github.io/scrapy/software-architecture-review-65735/</loc>
          <lastmod>2025-09-11</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://oyemello.github.io/scrapy/spent-planning-checklist-163952/</loc>
+         <lastmod>2025-09-11</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://oyemello.github.io/scrapy/jane-doe-company/jane-doe-analysis-1-2523220/</loc>
+         <lastmod>2025-09-11</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://oyemello.github.io/scrapy/jane-doe-company/jane-doe-analysis-2-2523247/</loc>
+         <lastmod>2025-09-11</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://oyemello.github.io/scrapy/jane-doe-company/jane-doe-software-architecture-review-2523202/</loc>
+         <lastmod>2025-09-11</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://oyemello.github.io/scrapy/jane-doe-company/jane-doe-spent-planning-checklist-2523180/</loc>
          <lastmod>2025-09-11</lastmod>
          <changefreq>daily</changefreq>
     </url>
