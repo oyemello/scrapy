@@ -495,11 +495,13 @@ class InlineWriter:
         (self.cfg.out_dir / rel).write_text(md_text, encoding='utf-8')
 
     def _rel_href(self, src: Path, dest: Path) -> str:
-        """Generate relative path from src file to dest file for breadcrumbs."""
-        src_dir = (self.cfg.out_dir / src).parent
-        dest_file = self.cfg.out_dir / dest
-        rel_path = os.path.relpath(dest_file.as_posix(), start=src_dir.as_posix()).replace('\\', '/')
-        return rel_path
+        """Breadcrumb links as pretty URLs (folders with trailing slash)."""
+        src_url_base = (self.cfg.out_dir / src).with_suffix('')
+        dest_url_base = (self.cfg.out_dir / dest).with_suffix('')
+        rel = os.path.relpath(dest_url_base.as_posix(), start=src_url_base.as_posix()).replace('\\', '/')
+        if not rel.endswith('/'):
+            rel += '/'
+        return rel
 
     def _build_breadcrumbs(self, pid: str, rel: Path) -> str:
         chain: List[Tuple[str, Path]] = []
@@ -535,6 +537,9 @@ class InlineWriter:
         # Build HTML
         parts: List[str] = []
         for title, path in chain:
+            # Skip linking to the current page itself
+            if path.as_posix() == rel.as_posix():
+                continue
             href = self._rel_href(rel, path)
             parts.append(f'<a href="{htmlesc.escape(href)}">{htmlesc.escape(title)}</a>')
         parts.append(htmlesc.escape(self.pages[pid].title))
@@ -720,8 +725,11 @@ def _validate_internal_links(out_dir: Path) -> None:
             return None
         # Normalize path; HTML breadcrumbs use pretty folders, Markdown uses .md
         if html:
-            # Resolve relative to the page's URL base (strip suffix)
-            base = (out_dir / src_md).with_suffix('')
+            # Resolve relative to the page's URL base (strip suffix). Special-case index.md at root.
+            if src_md.name == 'index.md':
+                base = out_dir
+            else:
+                base = (out_dir / src_md).with_suffix('')
             # If ends with '/', drop it and append '.md'
             if h.endswith('/'):
                 h2 = h[:-1] + '.md'
