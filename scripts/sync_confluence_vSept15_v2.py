@@ -19,6 +19,7 @@ import shutil
 import logging
 import subprocess
 from pathlib import Path
+import tempfile
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple, Set
 from urllib.parse import urlparse, unquote
@@ -426,6 +427,7 @@ class InlineWriter:
         self.inlined_ids_by_file: Dict[Path, Set[str]] = {}
         # Map of first-parent for linked pages
         self.discovered_from: Dict[str, str] = getattr(proc, 'discovered_from', {})
+        self.tmp_site_dir: Optional[str] = None
 
     def build_layout(self, root_id: str) -> None:
         # Map every page to an output file. Linked pages go under linked-content/depth-N/
@@ -497,6 +499,13 @@ class InlineWriter:
     def _rel_href(self, src: Path, dest: Path) -> str:
         """Breadcrumb links as pretty URLs (folders with trailing slash)."""
         src_url_base = (self.cfg.out_dir / src).with_suffix('')
+        # Special-case linking to the site root (index.md): use a pure relative folder path
+        # so that Home resolves to '../' (or './' from index) instead of '../index/'.
+        if dest.name == 'index.md':
+            rel = os.path.relpath(self.cfg.out_dir.as_posix(), start=src_url_base.as_posix()).replace('\\', '/')
+            if not rel.endswith('/'):
+                rel += '/'
+            return rel
         dest_url_base = (self.cfg.out_dir / dest).with_suffix('')
         rel = os.path.relpath(dest_url_base.as_posix(), start=src_url_base.as_posix()).replace('\\', '/')
         if not rel.endswith('/'):
@@ -620,8 +629,8 @@ class InlineWriter:
             },
             # docs_dir is relative to this config file's folder (out_dir)
             'docs_dir': '.',
-            # site_dir must be outside docs_dir
-            'site_dir': '../site',
+            # site_dir uses a temporary OS directory to avoid local artifacts
+            'site_dir': '.',  # placeholder; overwritten below
             'plugins': ['search', 'minify'],
         }
         existing_md_ext = []
@@ -696,6 +705,17 @@ class InlineWriter:
 
         base['nav'] = nav
 
+        # Create a temporary site_dir and store it for cleanup
+        try:
+            self.tmp_site_dir = tempfile.mkdtemp(prefix='mkdocs-site-')
+            base['site_dir'] = self.tmp_site_dir
+        except Exception:
+            # Fallback: still build to a sibling temp under out_dir
+            fallback = self.cfg.out_dir.parent / '.mkdocs-site-temp'
+            fallback.mkdir(parents=True, exist_ok=True)
+            self.tmp_site_dir = str(fallback)
+            base['site_dir'] = self.tmp_site_dir
+
         with open(self.cfg.out_dir / 'mkdocs.yml', 'w', encoding='utf-8') as f:
             yaml.safe_dump(base, f, sort_keys=False, allow_unicode=True)
 
@@ -730,13 +750,22 @@ def _validate_internal_links(out_dir: Path) -> None:
                 base = out_dir
             else:
                 base = (out_dir / src_md).with_suffix('')
-            # If ends with '/', drop it and append '.md'
             if h.endswith('/'):
-                h2 = h[:-1] + '.md'
+                # Pretty URL folder links. For pure relative root links like '../' or './',
+                # resolve to index.md in the resulting folder.
+                # Identify last non-empty segment
+                segs = [s for s in h.split('/') if s != '']
+                last = segs[-1] if segs else ''
+                if last in ('', '.', '..'):
+                    abs_path = (base / h / 'index.md').resolve()
+                else:
+                    # Normal pretty folder -> map to corresponding Markdown file
+                    h2 = h[:-1] + '.md'
+                    abs_path = (base / h2).resolve()
             else:
                 # If no extension, assume .md
                 h2 = h if h.lower().endswith('.md') else h + '.md'
-            abs_path = (base / h2).resolve()
+                abs_path = (base / h2).resolve()
         else:
             src_dir = (out_dir / src_md).parent
             if h.endswith('/'):
@@ -818,6 +847,20 @@ def main() -> None:
         # Deploy using generated config
         run_mkdocs(cfg.out_dir, deploy=True)
         logger.info('Deploy completed.')
+
+        # Cleanup temporary site_dir and generated docs to avoid local artifacts
+        try:
+            if getattr(writer, 'tmp_site_dir', None):
+                tmpd = Path(writer.tmp_site_dir)
+                if tmpd.exists():
+                    shutil.rmtree(tmpd, ignore_errors=True)
+        except Exception as e:
+            logger.warning('cleanup site_dir failed: %s', e)
+        try:
+            if cfg.out_dir.exists():
+                shutil.rmtree(cfg.out_dir, ignore_errors=True)
+        except Exception as e:
+            logger.warning('cleanup out_dir failed: %s', e)
     except (ConfigError, ConfluenceError) as e:
         logger.error(str(e)); sys.exit(1)
     except KeyboardInterrupt:
