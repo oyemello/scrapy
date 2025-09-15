@@ -2,6 +2,7 @@
 __pycache__/
 .DS_Store
 site/
+.generated_docs/
 .mypy_cache/
 .pytest_cache/
 *.pyc

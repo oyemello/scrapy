@@ -25,7 +25,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Sync Confluence to docs
+      - name: Sync and Deploy (v2)
         env:
           CONFLUENCE_BASE_URL: ${{ secrets.CONFLUENCE_BASE_URL }}
           CONFLUENCE_EMAIL: ${{ secrets.CONFLUENCE_EMAIL }}
@@ -33,14 +33,3 @@ jobs:
           CONFLUENCE_ROOT_PAGE_ID: ${{ secrets.CONFLUENCE_ROOT_PAGE_ID }}
         run: |
           python scripts/sync_confluence.py
-
-      - name: Build site
-        run: |
-          mkdocs build --strict
-
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./site
-          # cname: example.com  # uncomment and set if you want a custom domain
