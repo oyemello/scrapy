@@ -503,7 +503,8 @@ class InlineWriter:
             for cid in root.children:
                 if cid not in self.pages:
                     continue
-                href = f"{self.pages[cid].slug}-{cid}.md"
+                file_path = f"{self.pages[cid].slug}-{cid}.md"
+                href = file_path[:-3] + '/'  # extensionless URL for MkDocs
                 tiles.append(("<a class=\"category-card\" href=\"{href}\">"
                               "  <div class=\"card-title\">{title}</div>"
                               "</a>").format(href=href, title=self.pages[cid].title))
