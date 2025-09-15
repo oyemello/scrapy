@@ -51,7 +51,7 @@ class Config:
     out_dir: Path = field(default_factory=lambda: Path('.generated_docs'))
     # Depth settings
     follow_links: bool = True
-    max_link_depth: int = 2
+    max_link_depth: int = 4
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -100,6 +100,7 @@ class Page:
     ancestors: List[Dict[str, str]]
     html: str
     children: List[str] = field(default_factory=list)
+    link_depth: int = 0
 
     @property
     def slug(self) -> str:
@@ -113,7 +114,7 @@ class ConfluenceClient:
 
     def __init__(self, cfg: Config):
         self.cfg = cfg
-        self.base_url = cfg.base_url.rstrip('/')
+        self.base_url = self._normalize_base_url(cfg.base_url)
         self.api = f"{self.base_url}/rest/api"
         self.session = requests.Session()
         self.session.auth = (cfg.email, cfg.token)
@@ -121,6 +122,27 @@ class ConfluenceClient:
         self._count = 0
         self._host = urlparse(self.base_url).netloc
         self._resolve_cache: Dict[str, Optional[str]] = {}
+
+    @staticmethod
+    def _normalize_base_url(url: str) -> str:
+        """Normalize various Confluence URLs to a proper API base.
+
+        Accepts full share/tiny links like
+        https://<host>/wiki/pages/tinyurl.action?urlIdentifier=XXXX
+        and reduces to https://<host>/wiki for Cloud instances.
+        """
+        try:
+            p = urlparse(url)
+            if not p.scheme or not p.netloc:
+                return url.rstrip('/')
+            host = f"{p.scheme}://{p.netloc}"
+            # Cloud typically uses /wiki for UI & REST API
+            if '/wiki' in (p.path or ''):
+                return f"{host}/wiki"
+            # Fallback to host root
+            return host.rstrip('/')
+        except Exception:
+            return url.rstrip('/')
 
     def _req(self, method: str, url: str, **kw) -> requests.Response:
         for i in range(self.MAX_RETRIES):
@@ -195,16 +217,17 @@ class ConfluenceClient:
             self._resolve_cache[href] = None
             return None
 
-    def get_page(self, page_id: str) -> Page:
+    def get_page(self, page_id: str, link_depth: int = 0) -> Page:
         data = self._get(f"/content/{page_id}", params={"expand": "body.view,ancestors"})
         return Page(
             id=str(data['id']),
             title=data.get('title', f"Page {page_id}"),
             ancestors=[{"id": str(a['id']), "title": a.get('title', str(a['id']))} for a in data.get('ancestors', [])],
             html=data.get('body', {}).get('view', {}).get('value', ''),
+            link_depth=link_depth,
         )
 
-    def list_children(self, page_id: str) -> List[Page]:
+    def list_children(self, page_id: str, link_depth: int = 0) -> List[Page]:
         out: List[Page] = []
         start = 0
         while True:
@@ -215,6 +238,7 @@ class ConfluenceClient:
                     title=item.get('title', str(item['id'])),
                     ancestors=[{"id": str(a['id']), "title": a.get('title', str(a['id']))} for a in item.get('ancestors', [])],
                     html=item.get('body', {}).get('view', {}).get('value', ''),
+                    link_depth=link_depth,
                 ))
             if data.get('_links', {}).get('next'):
                 start += self.PAGE_LIMIT
@@ -258,17 +282,21 @@ class Processor:
             visited.add(pid)
             try:
                 logger.info("Fetching %s (link-depth=%d)", pid, ldepth)
-                page = self.client.get_page(pid)
+                page = self.client.get_page(pid, ldepth)
                 pages[pid] = page
-                children = self.client.list_children(pid)
+                # Enqueue children without increasing link-depth
+                children = self.client.list_children(pid, ldepth)
                 page.children = [c.id for c in children]
                 for ch in children:
                     if ch.id not in visited:
                         pages[ch.id] = ch
-                        q.append((ch.id, ldepth + 1))
+                        q.append((ch.id, ldepth))
                 if self.cfg.follow_links and ldepth < self.cfg.max_link_depth:
-                    for linked in self._extract_linked_page_ids(page.html):
+                    linked_ids = self._extract_linked_page_ids(page.html)
+                    logger.info("Found %d linked pages in %s", len(linked_ids), pid)
+                    for linked in linked_ids:
                         if linked not in visited:
+                            logger.info("Queuing linked page %s at depth %d", linked, ldepth + 1)
                             q.append((linked, ldepth + 1))
             except Exception as e:
                 logger.error("Failed to fetch page %s: %s", pid, e)
@@ -377,13 +405,17 @@ class InlineWriter:
         self.inlined_ids_by_file: Dict[Path, Set[str]] = {}
 
     def build_layout(self, root_id: str) -> None:
-        # Top-level pages: root + its direct children each get their own file
-        self.file_map[root_id] = Path('overview.md')
-        root = self.pages.get(root_id)
-        if root:
-            for cid in root.children:
-                if cid in self.pages:
-                    self.file_map[cid] = Path(f"{self.pages[cid].slug}-{cid}.md")
+        # Map every page to an output file. Linked pages go under linked-content/depth-N/
+        for pid, page in self.pages.items():
+            if page.link_depth > 0:
+                segs: List[str] = ['linked-content']
+                if page.link_depth > 1:
+                    segs.append(f'depth-{page.link_depth}')
+                rel = Path(*segs) / f"{page.slug}-{pid}.md"
+            else:
+                # Place hierarchy pages at root (flat); could be extended to ancestor folders if needed
+                rel = Path('overview.md') if pid == str(root_id) else Path(f"{page.slug}-{pid}.md")
+            self.file_map[pid] = rel
 
     def _collect_inlined(self, pid: str, max_depth: int) -> Set[str]:
         # ids that will be inlined inside pid's file (excluding pid itself)
@@ -409,14 +441,12 @@ class InlineWriter:
                 shutil.copytree(src, dest)
                 break
 
-        # Compute inlined sets per output file
-        for top_pid, path in self.file_map.items():
-            inlined = self._collect_inlined(top_pid, self.cfg.max_link_depth)
-            self.inlined_ids_by_file[path] = inlined
+        # No inlining; clear sets
+        self.inlined_ids_by_file = {path: set() for path in self.file_map.values()}
 
-        # Render pages
-        for top_pid, rel in self.file_map.items():
-            self._write_page_with_inline(top_pid, rel)
+        # Render pages (each as a standalone file)
+        for pid, rel in self.file_map.items():
+            self._write_single_page(pid, rel)
 
         # Write homepage
         self._write_homepage(root_id)
@@ -428,7 +458,7 @@ class InlineWriter:
         cleaned, _ = self.proc.clean_html(page, page.html, rel_path)
         return md(cleaned or '', heading_style='ATX', strip=None)
 
-    def _write_page_with_inline(self, pid: str, rel: Path) -> None:
+    def _write_single_page(self, pid: str, rel: Path) -> None:
         page = self.pages[pid]
         md_text = self._to_md(page, rel)
         # Ensure single H1 with the page title
@@ -437,32 +467,12 @@ class InlineWriter:
         else:
             md_text = f"# {page.title}\n\n" + md_text
 
-        # Append children and grandchildren sections up to max depth
-        def rec_children(cur: str, depth: int) -> str:
-            if depth >= self.cfg.max_link_depth:
-                return ''
-            out = []
-            for cid in self.pages.get(cur, Page('', '', [], '')).children:
-                ch = self.pages[cid]
-                level = min(6, depth + 2)  # child sections start at H2
-                # Use attr_list anchor so MkDocs recognizes anchor in nav
-                heading = f"{'#' * level} {ch.title} {{#sec-{cid}}}\n\n"
-                ch_md = self._to_md(ch, rel)
-                ch_md = strip_first_h1(ch_md)
-                ch_md = shift_headings(ch_md, depth + 1)  # push nested headings down
-                out.append(heading + ch_md + '\n')
-                out.append(rec_children(cid, depth + 1))
-            return ''.join(out)
-
-        md_text = md_text.rstrip() + '\n\n' + rec_children(pid, 0)
-
         (self.cfg.out_dir / rel).parent.mkdir(parents=True, exist_ok=True)
-        # Rewrite links to local anchors or pages
+        # Rewrite links to local pages
         md_text = self._rewrite_links_for_file(md_text, rel)
         (self.cfg.out_dir / rel).write_text(md_text, encoding='utf-8')
 
     def _rewrite_links_for_file(self, md_text: str, rel: Path) -> str:
-        inlined = self.inlined_ids_by_file.get(rel, set())
         # Reverse-map: id -> top-level file path
         id_to_file: Dict[str, Path] = {pid: p for pid, p in self.file_map.items()}
 
@@ -484,10 +494,7 @@ class InlineWriter:
                     pid = self.proc.client.resolve_page_id(href)
             if not pid:
                 return m.group(0)
-            # Rewrite if inlined in this file
-            if pid in inlined:
-                return f"[{text}](#sec-{pid})"
-            # Else if pid is a top-level page, link to its file
+            # Link to the mapped file if known
             if pid in id_to_file:
                 return f"[{text}]({id_to_file[pid].as_posix()})"
             return m.group(0)
@@ -557,34 +564,48 @@ class InlineWriter:
                 ec.append('assets/overrides.css')
             base['extra_css'] = ec
 
-        # Build nav: Home, Overview, and one entry per top-level child.
+        # Build nav: Home, Overview, hierarchical main pages, then Linked Content section
         nav: List = [{"Home": 'index.md'}]
-        nav.append({"Overview": 'overview.md'})
+        overview_path = self.file_map.get(root_id, Path('overview.md')).as_posix()
+        nav.append({"Overview": overview_path})
+
+        def item(pid: str) -> Dict:
+            p = self.pages[pid]
+            return {p.title: self.file_map[pid].as_posix()}
+
+        def build(pid: str) -> List:
+            arr: List = []
+            for cid in self.pages[pid].children:
+                ch = self.pages[cid]
+                if ch.link_depth > 0:
+                    continue
+                if ch.children:
+                    section = [item(cid)]
+                    section.extend(build(cid))
+                    arr.append({ch.title: section})
+                else:
+                    arr.append(item(cid))
+            return arr
+
         root = self.pages.get(root_id)
         if root:
-            for cid in root.children:
-                page = self.pages.get(cid)
-                if not page:
-                    continue
-                top_path = f"{page.slug}-{cid}.md"
-                entry: Dict = {page.title: top_path}
-                if page.children:
-                    sub: List = [entry]
-                    for gcid in page.children:
-                        if gcid in self.pages:
-                            sub.append({self.pages[gcid].title: f"{top_path}#sec-{gcid}"})
-                    nav.append({page.title: sub})
-                else:
-                    nav.append(entry)
-        base['nav'] = nav
+            nav.extend(build(root_id))
 
-        # Ensure attr_list extension is enabled for explicit heading IDs
-        mdext = base.get('markdown_extensions', []) or []
-        if isinstance(mdext, dict):
-            mdext = [mdext]
-        if 'attr_list' not in mdext:
-            mdext.append('attr_list')
-        base['markdown_extensions'] = mdext
+        # Linked Content section grouped by depth
+        linked = [p for p in self.pages.values() if p.link_depth > 0]
+        if linked:
+            grouped: Dict[int, List[Page]] = {}
+            for p in linked:
+                grouped.setdefault(p.link_depth, []).append(p)
+            linked_nav: List = []
+            for depth in sorted(grouped.keys()):
+                entries: List = []
+                for p in sorted(grouped[depth], key=lambda x: x.title):
+                    entries.append({p.title: self.file_map[p.id].as_posix()})
+                linked_nav.append({f"Depth {depth}": entries})
+            nav.append({"Linked Content": linked_nav})
+
+        base['nav'] = nav
 
         with open(self.cfg.out_dir / 'mkdocs.yml', 'w', encoding='utf-8') as f:
             yaml.safe_dump(base, f, sort_keys=False, allow_unicode=True)
