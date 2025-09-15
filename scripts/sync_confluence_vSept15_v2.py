@@ -22,6 +22,7 @@ from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple, Set
 from urllib.parse import urlparse, unquote
+import html as htmlesc
 
 import requests
 from bs4 import BeautifulSoup, Tag
@@ -101,6 +102,7 @@ class Page:
     html: str
     children: List[str] = field(default_factory=list)
     link_depth: int = 0
+    discovered_from: Optional[str] = None
 
     @property
     def slug(self) -> str:
@@ -256,9 +258,13 @@ class ConfluenceClient:
 
     def is_confluence_asset(self, url: str) -> bool:
         p = urlparse(url)
+        # Relative URL -> assume it's a Confluence-hosted asset
         if not p.netloc:
-            return p.path.startswith(('/wiki/', '/download/'))
-        return (self._host in p.netloc) and p.path.startswith(('/', '/wiki/', '/download/'))
+            return p.path.startswith(('/wiki/', '/download/', '/s/', 'download/')) or True
+        # Same host and common asset paths
+        return (self._host in p.netloc) and (
+            p.path.startswith(('/', '/wiki/', '/download/', '/s/'))
+        )
 
     def stats(self) -> Dict[str, int]:
         return {"requests": self._count}
@@ -269,6 +275,7 @@ class Processor:
         self.cfg = cfg
         self.client = client
         self.assets: Set[str] = set()
+        self.discovered_from: Dict[str, str] = {}
 
     def collect(self, root_id: str) -> Dict[str, Page]:
         from collections import deque
@@ -296,6 +303,9 @@ class Processor:
                     logger.info("Found %d linked pages in %s", len(linked_ids), pid)
                     for linked in linked_ids:
                         if linked not in visited:
+                            # remember who referenced it first
+                            if linked not in self.discovered_from:
+                                self.discovered_from[linked] = pid
                             logger.info("Queuing linked page %s at depth %d", linked, ldepth + 1)
                             q.append((linked, ldepth + 1))
             except Exception as e:
@@ -330,11 +340,21 @@ class Processor:
                 del t['style']
         downloads: List[Path] = []
         for img in soup.find_all('img'):
-            src = img.get('src')
+            src = img.get('src') or img.get('data-image-src') or img.get('data-src')
             if not src:
+                alias = img.get('data-linked-resource-default-alias') or img.get('data-media-services-file-name')
+                container = img.get('data-linked-resource-container-id')
+                if container and alias:
+                    src = f"/download/attachments/{container}/{alias}"
+                else:
+                    continue
+            # Make absolute for fetching decision
+            abs_src = self.client._abs_url(src)
+            # Skip known emoticon sprite paths which often 404 and aren't critical
+            if '/images/icons/emoticons/' in abs_src:
                 continue
-            if self.client.is_confluence_asset(src):
-                new_src, asset_rel = self._download_asset(page, src, page_path)
+            if self.client.is_confluence_asset(abs_src) or src.startswith(('download/', 'wiki/download', '/download/', '/wiki/s/', '/wiki/download/')):
+                new_src, asset_rel = self._download_asset(page, abs_src, page_path)
                 if new_src:
                     img['src'] = new_src
                 if asset_rel:
@@ -397,12 +417,15 @@ def strip_first_h1(md_text: str) -> str:
 
 
 class InlineWriter:
-    def __init__(self, cfg: Config, proc: Processor, pages: Dict[str, Page]):
+    def __init__(self, cfg: Config, proc: Processor, pages: Dict[str, Page], root_id: str):
         self.cfg = cfg
         self.proc = proc
         self.pages = pages
+        self.root_id = str(root_id)
         self.file_map: Dict[str, Path] = {}  # page id -> output path (for top-level pages only)
         self.inlined_ids_by_file: Dict[Path, Set[str]] = {}
+        # Map of first-parent for linked pages
+        self.discovered_from: Dict[str, str] = getattr(proc, 'discovered_from', {})
 
     def build_layout(self, root_id: str) -> None:
         # Map every page to an output file. Linked pages go under linked-content/depth-N/
@@ -460,17 +483,59 @@ class InlineWriter:
 
     def _write_single_page(self, pid: str, rel: Path) -> None:
         page = self.pages[pid]
-        md_text = self._to_md(page, rel)
-        # Ensure single H1 with the page title
-        if re.search(r"^#\s+", md_text, flags=re.MULTILINE):
-            md_text = re.sub(r"^#\s+.+", f"# {page.title}", md_text, count=1, flags=re.MULTILINE)
-        else:
-            md_text = f"# {page.title}\n\n" + md_text
+        raw_md = self._to_md(page, rel)
+        body = strip_first_h1(raw_md)
+        header = f"# {page.title}\n\n"
+        breadcrumbs = self._build_breadcrumbs(pid, rel)
+        md_text = header + breadcrumbs + body
 
         (self.cfg.out_dir / rel).parent.mkdir(parents=True, exist_ok=True)
         # Rewrite links to local pages
         md_text = self._rewrite_links_for_file(md_text, rel)
         (self.cfg.out_dir / rel).write_text(md_text, encoding='utf-8')
+
+    def _rel_href(self, src: Path, dest: Path) -> str:
+        # Breadcrumbs should link to pretty URLs as well
+        return self._site_rel(src, dest)
+
+    def _build_breadcrumbs(self, pid: str, rel: Path) -> str:
+        chain: List[Tuple[str, Path]] = []
+        chain.append(("Home", Path('index.md')))
+        chain.append((self.pages.get(self.root_id, Page('', 'Overview', [], '')).title or 'Overview', self.file_map.get(self.root_id, Path('overview.md'))))
+        if pid != self.root_id:
+            p = self.pages[pid]
+            # Hierarchy ancestors after root
+            if p.link_depth == 0:
+                seen_root = False
+                for anc in p.ancestors:
+                    aid = str(anc.get('id'))
+                    if aid == self.root_id:
+                        seen_root = True
+                        continue
+                    if seen_root and aid in self.file_map and aid in self.pages:
+                        chain.append((self.pages[aid].title, self.file_map[aid]))
+            else:
+                # Follow discovered_from chain up to a hierarchy page or root
+                current = pid
+                hops: List[str] = []
+                while current in self.discovered_from:
+                    parent = self.discovered_from[current]
+                    if parent in hops:  # prevent cycles
+                        break
+                    hops.append(parent)
+                    if parent in self.pages and self.pages[parent].link_depth == 0:
+                        break
+                    current = parent
+                for hid in reversed(hops):
+                    if hid in self.file_map and hid in self.pages:
+                        chain.append((self.pages[hid].title, self.file_map[hid]))
+        # Build HTML
+        parts: List[str] = []
+        for title, path in chain:
+            href = self._rel_href(rel, path)
+            parts.append(f'<a href="{htmlesc.escape(href)}">{htmlesc.escape(title)}</a>')
+        parts.append(htmlesc.escape(self.pages[pid].title))
+        return '<nav class="breadcrumbs">' + ' / '.join(parts) + '</nav>\n\n'
 
     def _rewrite_links_for_file(self, md_text: str, rel: Path) -> str:
         # Reverse-map: id -> top-level file path
@@ -494,13 +559,22 @@ class InlineWriter:
                     pid = self.proc.client.resolve_page_id(href)
             if not pid:
                 return m.group(0)
-            # Link to the mapped file if known
+            # Link to the mapped file if known; compute site-relative path (pretty URLs)
             if pid in id_to_file:
-                return f"[{text}]({id_to_file[pid].as_posix()})"
+                relpath = self._site_rel(rel, id_to_file[pid])
+                return f"[{text}]({relpath})"
             return m.group(0)
 
         pattern = re.compile(r"(?P<bang>!?)\[(?P<text>[^\]]*)\]\((?P<href>[^)]+)\)")
         return pattern.sub(repl, md_text)
+
+    def _site_rel(self, src_file: Path, dest_file: Path) -> str:
+        """Compute a docs-relative path between Markdown files (.md).
+        MkDocs will rewrite these to proper site URLs; using .md avoids warnings.
+        """
+        src_dir = (self.cfg.out_dir / src_file).parent
+        dest_abs = self.cfg.out_dir / dest_file
+        return os.path.relpath(dest_abs.as_posix(), start=src_dir.as_posix()).replace('\\', '/')
 
     def _write_homepage(self, root_id: str) -> None:
         root = self.pages.get(root_id)
@@ -564,7 +638,7 @@ class InlineWriter:
                 ec.append('assets/overrides.css')
             base['extra_css'] = ec
 
-        # Build nav: Home, Overview, hierarchical main pages, then Linked Content section
+        # Build nav: Home, Overview, hierarchical main pages; include linked pages under the parent that referenced them
         nav: List = [{"Home": 'index.md'}]
         overview_path = self.file_map.get(root_id, Path('overview.md')).as_posix()
         nav.append({"Overview": overview_path})
@@ -573,37 +647,46 @@ class InlineWriter:
             p = self.pages[pid]
             return {p.title: self.file_map[pid].as_posix()}
 
+        def linked_entries(parent_id: str) -> List:
+            """Build recursive 'Linked Pages' entries for a parent_id, filtering out
+            hierarchy pages and deduplicating.
+            """
+            results: List = []
+            # Only include pages discovered from this parent with link_depth > 0
+            linked_here = [lid for lid, parent in self.discovered_from.items()
+                           if parent == parent_id and lid in self.pages and self.pages[lid].link_depth > 0]
+            for lid in sorted(linked_here, key=lambda x: self.pages[x].title):
+                # Build possible nested linked pages under this linked page
+                children = linked_entries(lid)
+                if children:
+                    results.append({self.pages[lid].title: [item(lid), {"Linked Pages": children}]})
+                else:
+                    results.append(item(lid))
+            return results
+
         def build(pid: str) -> List:
             arr: List = []
+            # For each hierarchy child, build a section including its own children and its linked pages group
             for cid in self.pages[pid].children:
                 ch = self.pages[cid]
                 if ch.link_depth > 0:
                     continue
+                subsection: List = []
+                subsection.append(item(cid))
                 if ch.children:
-                    section = [item(cid)]
-                    section.extend(build(cid))
-                    arr.append({ch.title: section})
-                else:
+                    subsection.extend(build(cid))
+                lnk = linked_entries(cid)
+                if lnk:
+                    subsection.append({"Linked Pages": lnk})
+                if len(subsection) == 1 and not ch.children and not lnk:
                     arr.append(item(cid))
+                else:
+                    arr.append({ch.title: subsection})
             return arr
 
         root = self.pages.get(root_id)
         if root:
             nav.extend(build(root_id))
-
-        # Linked Content section grouped by depth
-        linked = [p for p in self.pages.values() if p.link_depth > 0]
-        if linked:
-            grouped: Dict[int, List[Page]] = {}
-            for p in linked:
-                grouped.setdefault(p.link_depth, []).append(p)
-            linked_nav: List = []
-            for depth in sorted(grouped.keys()):
-                entries: List = []
-                for p in sorted(grouped[depth], key=lambda x: x.title):
-                    entries.append({p.title: self.file_map[p.id].as_posix()})
-                linked_nav.append({f"Depth {depth}": entries})
-            nav.append({"Linked Content": linked_nav})
 
         base['nav'] = nav
 
@@ -637,7 +720,7 @@ def main() -> None:
         if not pages:
             logger.error('No pages collected'); sys.exit(1)
 
-        writer = InlineWriter(cfg, proc, pages)
+        writer = InlineWriter(cfg, proc, pages, cfg.root_page_id)
         writer.build_layout(cfg.root_page_id)
         writer.render_all(cfg.root_page_id)
 
