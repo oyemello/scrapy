@@ -11,7 +11,7 @@ Discover and resolve problems with your team by following the instructions for t
 | **Team members** | Alex Johnson, Priya Mehta, Sarah Kim, Tom Nguyen |
 | **Date** | Sept 11, 2025 |
 
-![image-20250911-183030.png](../assets/2523247/image-20250911-183030.png)## Problem statements
+![image-20250911-183030.png](assets/2523247/image-20250911-183030.png)## Problem statements
 
 
 

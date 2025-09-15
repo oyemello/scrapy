@@ -14,5 +14,4 @@ docs/assets/*
 !docs/assets/overrides.css
 !docs/assets/darkmode.js
 !docs/assets/number_toc.js
-!docs/assets/open_details.js
 .env

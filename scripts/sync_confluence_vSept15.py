@@ -318,24 +318,15 @@ class Processor:
         return ids
 
     def build_map(self, pages: Dict[str, "Page"], root_id: str) -> Dict[str, Path]:
-        """Map page IDs to output file paths under docs/.
+        """Map page IDs to flat output file paths under docs/.
 
         - For the root page, use 'overview.md'.
-        - For other pages, use '<slug>-<id>.md'.
-        - Place files into folders reflecting ancestors after the root.
+        - For other pages, use '<slug>-<id>.md' at the docs root (no folders).
         """
         m: Dict[str, Path] = {}
         for pid, page in pages.items():
-            segs: List[str] = []
-            after_root = False
-            for anc in page.ancestors:
-                if str(anc.get('id')) == str(root_id):
-                    after_root = True
-                    continue
-                if after_root:
-                    segs.append(slugify(anc.get('title', '')))
             filename = 'overview.md' if str(pid) == str(root_id) else f"{page.slug}-{pid}.md"
-            m[pid] = (Path(*segs) / filename) if segs else Path(filename)
+            m[pid] = Path(filename)
         return m
 
     def clean_html(self, page: Page, html: str, page_path: Path, fmap: Dict[str, Path]) -> Tuple[str, List[Path]]:
@@ -426,15 +417,7 @@ class Writer:
     def _has_number_prefix(title: str) -> bool:
         return bool(re.match(r"^\d+(?:\.\d+)*\s+", title.strip()))
 
-    @staticmethod
-    def _strip_first_h1(md_text: str) -> str:
-        m = re.search(r"^#\s+.+\n?", md_text, flags=re.MULTILINE)
-        if not m:
-            return md_text
-        start, end = m.span()
-        rest = md_text[end:]
-        # Remove leading blank line after H1 if present
-        return re.sub(r"^\n", "", rest, count=1)
+    # No longer needed: we are not embedding child content within parent pages
 
     def _compute_numbering(self, pages: Dict[str, Page], root_id: str) -> Dict[str, str]:
         nums: Dict[str, str] = {}
@@ -470,42 +453,7 @@ class Writer:
             else:
                 md_text = f"# {numbered_title}\n\n" + md_text
 
-            # Rewrite links to direct children to expanders on this page
-            if pid in pages:
-                parent_children = pages[pid].children or []
-                src_dir = (self.cfg.docs_dir / rel).parent
-                for cid in parent_children:
-                    if cid not in fmap:
-                        continue
-                    child_path = self.cfg.docs_dir / fmap[cid]
-                    rel_child = os.path.relpath(child_path, start=src_dir).replace('\\', '/')
-                    # Replace markdown links pointing to the child file with a local anchor
-                    # Pattern: ](rel_child) or ](rel_child#...)
-                    pattern = re.compile(r"\]\(" + re.escape(rel_child) + r"(?:#[^)]*)?\)")
-                    md_text = pattern.sub("](#{})".format(f"child-{cid}"), md_text)
-
-            # Append collapsible sections for direct children (one level)
-            if pages.get(pid) and pages[pid].children:
-                sections: List[str] = []
-                for cid in pages[pid].children:
-                    ch = pages.get(cid)
-                    if not ch:
-                        continue
-                    # Render child content in the context of the parent page (for relative links)
-                    ch_clean, _ = proc.clean_html(ch, ch.html, rel, fmap)
-                    ch_md = proc.to_markdown(ch_clean)
-                    # Drop the first H1 to avoid duplicate large headings
-                    ch_md = self._strip_first_h1(ch_md)
-                    sections.append(
-                        (
-                            f"\n<details id=\"child-{cid}\">\n"
-                            f"<summary>{htmlesc.escape(ch.title)}</summary>\n\n"
-                            f"{ch_md}\n"
-                            "</details>\n"
-                        )
-                    )
-                if sections:
-                    md_text = md_text.rstrip() + "\n\n" + "\n".join(sections) + "\n"
+            # No in-page drawers; child links remain as normal page links
             absf.write_text(md_text, encoding='utf-8')
 
         self._write_homepage(pages, fmap, root_id)
@@ -588,11 +536,14 @@ class Writer:
             except Exception as e:
                 logger.warning("mkdocs.yml load failed: %s", e)
         base['nav'] = nav
-        # Ensure our helper JS is included
-        ej = base.get('extra_javascript', []) or []
-        if 'assets/open_details.js' not in ej:
-            ej.append('assets/open_details.js')
-        base['extra_javascript'] = ej
+        # Ensure we don't carry over drawer JS if present
+        ej = base.get('extra_javascript')
+        if isinstance(ej, list):
+            ej = [x for x in ej if x != 'assets/open_details.js']
+            if ej:
+                base['extra_javascript'] = ej
+            elif 'extra_javascript' in base:
+                del base['extra_javascript']
         with open(self.cfg.mkdocs_path, 'w', encoding='utf-8') as f:
             yaml.safe_dump(base, f, sort_keys=False, allow_unicode=True)
 

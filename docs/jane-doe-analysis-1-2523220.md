@@ -11,7 +11,7 @@ Discover and resolve problems with your team by following the instructions for t
 | **Team members** | Sarah Kim, John Rivera, Priya Mehta, Emily Carter |
 | **Date** | Sept 11, 2025 |
 
-![image-20250911-183050.png](../assets/2523220/image-20250911-183050.png)## Problem statements
+![image-20250911-183050.png](assets/2523220/image-20250911-183050.png)## Problem statements
 
 
 

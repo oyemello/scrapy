@@ -37,14 +37,12 @@ nav:
 - Analysis 2: analysis-2-2523138.md
 - Jane Doe Company:
   - Jane Doe Company: jane-doe-company-2523155.md
-  - Jane Doe Spent Planning Checklist: jane-doe-company/jane-doe-spent-planning-checklist-2523180.md
-  - Jane Doe Software Architecture Review: jane-doe-company/jane-doe-software-architecture-review-2523202.md
-  - Jane Doe Analysis 1: jane-doe-company/jane-doe-analysis-1-2523220.md
-  - Jane Doe Analysis 2: jane-doe-company/jane-doe-analysis-2-2523247.md
+  - Jane Doe Spent Planning Checklist: jane-doe-spent-planning-checklist-2523180.md
+  - Jane Doe Software Architecture Review: jane-doe-software-architecture-review-2523202.md
+  - Jane Doe Analysis 1: jane-doe-analysis-1-2523220.md
+  - Jane Doe Analysis 2: jane-doe-analysis-2-2523247.md
 - Josh Doe Company:
   - Josh Doe Company: josh-doe-company-4554762.md
-  - Scrapy Level 1: josh-doe-company/scrapy-level-1-4751361.md
+  - Scrapy Level 1: scrapy-level-1-4751361.md
 extra_css:
 - assets/overrides.css
-extra_javascript:
-- assets/open_details.js
