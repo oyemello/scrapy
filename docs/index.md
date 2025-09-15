@@ -1,5 +1,8 @@
-# scrapy
+# John Doe Company
 
-This is a placeholder homepage.
+Welcome. Choose a category to get started:
 
-Add the Confluence secrets to GitHub Actions and run the workflow to sync real content from your Confluence space.
+<div class="category-grid">
+<a class="category-card" href="overview/">  <div class="card-title">John Doe Company</div></a>
+<a class="category-card" href="jane-doe-company-2523155/">  <div class="card-title">Jane Doe Company</div></a>
+</div>

@@ -42,6 +42,9 @@ class Config:
     root_page_id: str
     docs_dir: Path = field(default_factory=lambda: Path("docs"))
     mkdocs_path: Path = field(default_factory=lambda: Path("mkdocs.yml"))
+    # Link following controls
+    follow_links: bool = True
+    max_link_depth: int = 3
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -66,6 +69,16 @@ class Config:
             data['docs_dir'] = Path(d)  # type: ignore
         if m := os.getenv('MKDOCS_PATH'):
             data['mkdocs_path'] = Path(m)  # type: ignore
+        # Optional: follow in-page Confluence links
+        fl = os.getenv('FOLLOW_LINKS')
+        if fl is not None:
+            data['follow_links'] = str(fl).strip().lower() in ("1", "true", "yes", "y")  # type: ignore
+        mld = os.getenv('MAX_LINK_DEPTH')
+        if mld:
+            try:
+                data['max_link_depth'] = max(0, int(mld))  # type: ignore
+            except ValueError:
+                pass
         cfg = cls(**data)  # type: ignore[arg-type]
         cfg.validate()
         return cfg
@@ -178,24 +191,61 @@ class Processor:
         self.assets: Set[str] = set()
 
     def collect(self, root_id: str) -> Dict[str, Page]:
+        """Collect pages starting from root and (optionally) follow in-page links up to a depth.
+
+        Link-depth increases only when following links found within page content; traversing
+        Confluence child pages does not increase link-depth.
+        """
+        from collections import deque
+
         pages: Dict[str, Page] = {}
-        seen: Set[str] = set()
+        visited: Set[str] = set()
+        q = deque([(str(root_id), 0)])
 
-        def dfs(pid: str, depth: int = 0):
-            if pid in seen:
-                return
-            seen.add(pid)
-            logger.info("%sFetching %s", "  " * depth, pid)
-            page = self.client.get_page(pid)
-            pages[pid] = page
-            children = self.client.list_children(pid)
-            page.children = [c.id for c in children]
-            for ch in children:
-                pages[ch.id] = ch
-                dfs(ch.id, depth + 1)
+        while q:
+            pid, ldepth = q.popleft()
+            if pid in visited:
+                continue
+            visited.add(pid)
+            try:
+                logger.info("Fetching %s (link-depth=%d)", pid, ldepth)
+                page = self.client.get_page(pid)
+                pages[pid] = page
 
-        dfs(root_id)
+                # Enqueue children (do not increase link-depth)
+                children = self.client.list_children(pid)
+                page.children = [c.id for c in children]
+                for ch in children:
+                    if ch.id not in visited:
+                        pages[ch.id] = ch
+                        q.append((ch.id, ldepth))
+
+                # Follow in-page links up to configured depth
+                if self.cfg.follow_links and ldepth < self.cfg.max_link_depth:
+                    for linked in self._extract_linked_page_ids(page.html):
+                        if linked not in visited:
+                            q.append((linked, ldepth + 1))
+            except Exception as e:
+                logger.error("Failed to fetch page %s: %s", pid, e)
+
         return pages
+
+    def _extract_linked_page_ids(self, html: str) -> Set[str]:
+        ids: Set[str] = set()
+        if not html:
+            return ids
+        try:
+            soup = BeautifulSoup(html, 'html.parser')
+            for a in soup.find_all('a'):
+                href = a.get('href')
+                if not href:
+                    continue
+                m = re.search(r"/pages/(\d+)", href) or re.search(r"/spaces/[A-Z0-9\-_]+/pages/(\d+)", href)
+                if m:
+                    ids.add(m.group(1))
+        except Exception:
+            pass
+        return ids
 
     def build_map(self, pages: Dict[str, Page], root_id: str) -> Dict[str, Path]:
         m: Dict[str, Path] = {}
