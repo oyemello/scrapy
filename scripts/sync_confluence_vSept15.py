@@ -116,6 +116,7 @@ class ConfluenceClient:
         self.session.headers.update({"Accept": "application/json", "User-Agent": "scrapy-vsept15"})
         self._count = 0
         self._host = urlparse(self.base_url).netloc
+        self._resolve_cache: Dict[str, Optional[str]] = {}
 
     def _req(self, method: str, url: str, **kw) -> requests.Response:
         for i in range(self.MAX_RETRIES):
@@ -136,6 +137,79 @@ class ConfluenceClient:
     def _get(self, path: str, params: Optional[Dict] = None) -> dict:
         url = path if path.startswith('http') else f"{self.api}{path}"
         return self._req('GET', url, params=params).json()
+
+    def _abs_url(self, url: str) -> str:
+        if url.startswith('/'):
+            return f"{self.base_url}{url}"
+        return url
+
+    def _extract_id_from_url(self, url: str) -> Optional[str]:
+        m = re.search(r"/pages/(\d+)", url)
+        if m:
+            return m.group(1)
+        m = re.search(r"[?&]pageId=(\d+)", url)
+        if m:
+            return m.group(1)
+        m = re.search(r"/content/(\d+)", url)
+        if m:
+            return m.group(1)
+        return None
+
+    def resolve_page_id(self, href: str) -> Optional[str]:
+        """Resolve Confluence short/tiny/display links to a numeric page id.
+
+        Caches lookups and only resolves for links pointing to the configured
+        Confluence host (including relative '/wiki/...').
+        """
+        if not href:
+            return None
+        if href in self._resolve_cache:
+            return self._resolve_cache[href]
+
+        try:
+            # Quick parse
+            p = urlparse(href)
+            # Ignore non-confluence external links
+            if p.scheme and p.netloc and (self._host not in p.netloc):
+                self._resolve_cache[href] = None
+                return None
+
+            # Immediate patterns
+            if pid := self._extract_id_from_url(href):
+                self._resolve_cache[href] = pid
+                return pid
+
+            # Only attempt network if looks like Confluence path
+            path = p.path or ''
+            if not p.scheme and not p.netloc:
+                # relative path like /wiki/x/abcd or /x/abcd
+                absu = self._abs_url(href)
+            else:
+                absu = href
+
+            # Only proceed for our host
+            if urlparse(absu).netloc and (self._host not in urlparse(absu).netloc):
+                self._resolve_cache[href] = None
+                return None
+
+            # Follow redirects to find canonical page URL
+            try:
+                r = self._req('GET', absu, allow_redirects=True)
+                final_url = r.url
+            except ConfluenceError:
+                # Try HEAD if GET failed due to content restrictions
+                try:
+                    r = self._req('HEAD', absu, allow_redirects=True)
+                    final_url = r.url
+                except Exception:
+                    final_url = absu
+
+            pid = self._extract_id_from_url(final_url)
+            self._resolve_cache[href] = pid
+            return pid
+        except Exception:
+            self._resolve_cache[href] = None
+            return None
 
     def get_page(self, page_id: str) -> Page:
         data = self._get(f"/content/{page_id}", params={"expand": "body.view,ancestors"})
@@ -234,7 +308,11 @@ class Processor:
                     continue
                 m = re.search(r"/pages/(\d+)", href) or re.search(r"/spaces/[A-Z0-9\-_]+/pages/(\d+)", href)
                 if m:
-                    ids.add(m.group(1))
+                    ids.add(m.group(1)); continue
+                # Resolve tiny/display links like /wiki/x/abcd or ?pageId=123
+                if ('/x/' in href) or ('/wiki/x/' in href) or ('pageId=' in href) or ('/display/' in href):
+                    if (pid := self.client.resolve_page_id(href)):
+                        ids.add(pid)
         except Exception:
             pass
         return ids
@@ -316,9 +394,16 @@ class Processor:
         if p.scheme and 'atlassian.net/wiki' not in href and p.netloc and self.client._host not in p.netloc:
             return None
         m = re.search(r"/pages/(\d+)", href) or re.search(r"/spaces/[A-Z0-9\-_]+/pages/(\d+)", href)
+        target: Optional[str]
         if not m:
+            # Try resolving tiny/display links
+            target = self.client.resolve_page_id(href)
+            if not target:
+                return None
+        else:
+            target = m.group(1)
+        if target is None:
             return None
-        target = m.group(1)
         if target not in fmap:
             return None
         anchor = ''
@@ -340,6 +425,16 @@ class Writer:
     @staticmethod
     def _has_number_prefix(title: str) -> bool:
         return bool(re.match(r"^\d+(?:\.\d+)*\s+", title.strip()))
+
+    @staticmethod
+    def _strip_first_h1(md_text: str) -> str:
+        m = re.search(r"^#\s+.+\n?", md_text, flags=re.MULTILINE)
+        if not m:
+            return md_text
+        start, end = m.span()
+        rest = md_text[end:]
+        # Remove leading blank line after H1 if present
+        return re.sub(r"^\n", "", rest, count=1)
 
     def _compute_numbering(self, pages: Dict[str, Page], root_id: str) -> Dict[str, str]:
         nums: Dict[str, str] = {}
@@ -374,6 +469,43 @@ class Writer:
                 md_text = re.sub(r"^#\s+.+", f"# {numbered_title}", md_text, count=1, flags=re.MULTILINE)
             else:
                 md_text = f"# {numbered_title}\n\n" + md_text
+
+            # Rewrite links to direct children to expanders on this page
+            if pid in pages:
+                parent_children = pages[pid].children or []
+                src_dir = (self.cfg.docs_dir / rel).parent
+                for cid in parent_children:
+                    if cid not in fmap:
+                        continue
+                    child_path = self.cfg.docs_dir / fmap[cid]
+                    rel_child = os.path.relpath(child_path, start=src_dir).replace('\\', '/')
+                    # Replace markdown links pointing to the child file with a local anchor
+                    # Pattern: ](rel_child) or ](rel_child#...)
+                    pattern = re.compile(r"\]\(" + re.escape(rel_child) + r"(?:#[^)]*)?\)")
+                    md_text = pattern.sub("](#{})".format(f"child-{cid}"), md_text)
+
+            # Append collapsible sections for direct children (one level)
+            if pages.get(pid) and pages[pid].children:
+                sections: List[str] = []
+                for cid in pages[pid].children:
+                    ch = pages.get(cid)
+                    if not ch:
+                        continue
+                    # Render child content in the context of the parent page (for relative links)
+                    ch_clean, _ = proc.clean_html(ch, ch.html, rel, fmap)
+                    ch_md = proc.to_markdown(ch_clean)
+                    # Drop the first H1 to avoid duplicate large headings
+                    ch_md = self._strip_first_h1(ch_md)
+                    sections.append(
+                        (
+                            f"\n<details id=\"child-{cid}\">\n"
+                            f"<summary>{htmlesc.escape(ch.title)}</summary>\n\n"
+                            f"{ch_md}\n"
+                            "</details>\n"
+                        )
+                    )
+                if sections:
+                    md_text = md_text.rstrip() + "\n\n" + "\n".join(sections) + "\n"
             absf.write_text(md_text, encoding='utf-8')
 
         self._write_homepage(pages, fmap, root_id)
@@ -456,6 +588,11 @@ class Writer:
             except Exception as e:
                 logger.warning("mkdocs.yml load failed: %s", e)
         base['nav'] = nav
+        # Ensure our helper JS is included
+        ej = base.get('extra_javascript', []) or []
+        if 'assets/open_details.js' not in ej:
+            ej.append('assets/open_details.js')
+        base['extra_javascript'] = ej
         with open(self.cfg.mkdocs_path, 'w', encoding='utf-8') as f:
             yaml.safe_dump(base, f, sort_keys=False, allow_unicode=True)
 
@@ -468,6 +605,8 @@ def slugify(text: str) -> str:
     s = re.sub(r"[^a-z0-9\-_]", '', s)
     s = re.sub(r"-+", '-', s).strip('-')
     return s or 'page'
+
+ 
 
 
 def main() -> None:
