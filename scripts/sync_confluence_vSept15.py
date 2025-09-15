@@ -239,6 +239,27 @@ class Processor:
             pass
         return ids
 
+    def build_map(self, pages: Dict[str, "Page"], root_id: str) -> Dict[str, Path]:
+        """Map page IDs to output file paths under docs/.
+
+        - For the root page, use 'overview.md'.
+        - For other pages, use '<slug>-<id>.md'.
+        - Place files into folders reflecting ancestors after the root.
+        """
+        m: Dict[str, Path] = {}
+        for pid, page in pages.items():
+            segs: List[str] = []
+            after_root = False
+            for anc in page.ancestors:
+                if str(anc.get('id')) == str(root_id):
+                    after_root = True
+                    continue
+                if after_root:
+                    segs.append(slugify(anc.get('title', '')))
+            filename = 'overview.md' if str(pid) == str(root_id) else f"{page.slug}-{pid}.md"
+            m[pid] = (Path(*segs) / filename) if segs else Path(filename)
+        return m
+
     def clean_html(self, page: Page, html: str, page_path: Path, fmap: Dict[str, Path]) -> Tuple[str, List[Path]]:
         soup = BeautifulSoup(html or '', 'html.parser')
         self._normalize_headings(soup)
@@ -477,4 +498,3 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
-
