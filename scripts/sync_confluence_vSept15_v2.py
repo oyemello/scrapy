@@ -399,13 +399,15 @@ class InlineWriter:
 
     def render_all(self, root_id: str) -> None:
         self.cfg.out_dir.mkdir(parents=True, exist_ok=True)
-        # Copy assets from repo docs/assets if present
-        repo_assets = Path('docs/assets')
-        if repo_assets.exists():
-            dest = self.cfg.out_dir / 'assets'
-            if dest.exists():
-                shutil.rmtree(dest)
-            shutil.copytree(repo_assets, dest)
+        # Copy assets from repo 'site_assets' (preferred) or legacy 'docs/assets'
+        dest = self.cfg.out_dir / 'assets'
+        if dest.exists():
+            shutil.rmtree(dest)
+        src_candidates = [Path('site_assets'), Path('docs/assets')]
+        for src in src_candidates:
+            if src.exists():
+                shutil.copytree(src, dest)
+                break
 
         # Compute inlined sets per output file
         for top_pid, path in self.file_map.items():
