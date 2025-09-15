@@ -495,8 +495,11 @@ class InlineWriter:
         (self.cfg.out_dir / rel).write_text(md_text, encoding='utf-8')
 
     def _rel_href(self, src: Path, dest: Path) -> str:
-        # Breadcrumbs should link to pretty URLs as well
-        return self._site_rel(src, dest)
+        """Generate relative path from src file to dest file for breadcrumbs."""
+        src_dir = (self.cfg.out_dir / src).parent
+        dest_file = self.cfg.out_dir / dest
+        rel_path = os.path.relpath(dest_file.as_posix(), start=src_dir.as_posix()).replace('\\', '/')
+        return rel_path
 
     def _build_breadcrumbs(self, pid: str, rel: Path) -> str:
         chain: List[Tuple[str, Path]] = []
@@ -569,9 +572,7 @@ class InlineWriter:
         return pattern.sub(repl, md_text)
 
     def _site_rel(self, src_file: Path, dest_file: Path) -> str:
-        """Compute a docs-relative path between Markdown files (.md).
-        MkDocs will rewrite these to proper site URLs; using .md avoids warnings.
-        """
+        """Compute docs-relative .md path between Markdown files."""
         src_dir = (self.cfg.out_dir / src_file).parent
         dest_abs = self.cfg.out_dir / dest_file
         return os.path.relpath(dest_abs.as_posix(), start=src_dir.as_posix()).replace('\\', '/')
@@ -694,8 +695,87 @@ class InlineWriter:
             yaml.safe_dump(base, f, sort_keys=False, allow_unicode=True)
 
 
+def _validate_internal_links(out_dir: Path) -> None:
+    """Scan generated Markdown and basic HTML for internal links and ensure targets exist.
+
+    Rules:
+    - Markdown links to files must resolve to an existing .md within out_dir (after join).
+    - Pretty links ending with '/' (e.g., 'foo/') are mapped to 'foo.md'.
+    - HTML anchor hrefs are validated similarly; external links are ignored.
+    Raise ConfluenceError if any invalid internal links are found.
+    """
+    import re
+    errors: List[str] = []
+
+    def is_external(href: str) -> bool:
+        return href.startswith(('http://', 'https://', 'mailto:', 'tel:'))
+
+    def as_target(src_md: Path, href: str, *, html: bool = False) -> Optional[Path]:
+        # Ignore pure anchor
+        if not href or href.startswith('#'):
+            return None
+        # Strip fragment
+        h = href.split('#', 1)[0]
+        if is_external(h):
+            return None
+        # Normalize path; HTML breadcrumbs use pretty folders, Markdown uses .md
+        if html:
+            # Resolve relative to the page's URL base (strip suffix)
+            base = (out_dir / src_md).with_suffix('')
+            # If ends with '/', drop it and append '.md'
+            if h.endswith('/'):
+                h2 = h[:-1] + '.md'
+            else:
+                # If no extension, assume .md
+                h2 = h if h.lower().endswith('.md') else h + '.md'
+            abs_path = (base / h2).resolve()
+        else:
+            src_dir = (out_dir / src_md).parent
+            if h.endswith('/'):
+                h2 = h[:-1] + '.md'
+            else:
+                h2 = h
+            if '.' not in os.path.basename(h2):
+                h2 = h2 + '.md'
+            abs_path = (src_dir / h2).resolve()
+        try:
+            abs_path.relative_to(out_dir.resolve())
+        except Exception:
+            return abs_path
+        return abs_path
+
+    md_link_re = re.compile(r"(?P<bang>!?)\[(?P<text>[^\]]*)\]\((?P<href>[^)]+)\)")
+    html_href_re = re.compile(r"href=\"([^\"]+)\"")
+
+    for md_file in out_dir.rglob('*.md'):
+        text = md_file.read_text(encoding='utf-8', errors='ignore')
+        # Markdown links
+        for m in md_link_re.finditer(text):
+            if m.group('bang') == '!':
+                continue
+            href = m.group('href').strip()
+            tgt = as_target(md_file.relative_to(out_dir), href)
+            if tgt and not tgt.exists():
+                errors.append(f"{md_file}: unresolved link -> {href} (expected {tgt})")
+        # HTML hrefs
+        for hm in html_href_re.finditer(text):
+            href = hm.group(1).strip()
+            tgt = as_target(md_file.relative_to(out_dir), href, html=True)
+            if tgt and not tgt.exists():
+                errors.append(f"{md_file}: unresolved HTML href -> {href} (expected {tgt})")
+
+    if errors:
+        for e in errors[:50]:
+            logger.error(e)
+        if len(errors) > 50:
+            logger.error("... and %d more", len(errors) - 50)
+        raise ConfluenceError(f"Invalid internal links detected: {len(errors)} problems")
+
+
 def run_mkdocs(out_dir: Path, deploy: bool = True) -> None:
     cfg_path = out_dir / 'mkdocs.yml'
+    # Validate links before building/deploying
+    _validate_internal_links(out_dir)
     if deploy:
         cmd = ['mkdocs', 'gh-deploy', '--force', '-f', str(cfg_path)]
     else:
