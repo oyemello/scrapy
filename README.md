@@ -18,9 +18,17 @@ Confluence → GitHub Pages (POC). This syncs a Confluence page tree into a stat
    - `CONFLUENCE_API_TOKEN=...` (create at https://id.atlassian.com/manage-profile/security/api-tokens)
    - `CONFLUENCE_ROOT_PAGE_ID=123456`
 
-3. Run sync:
-   - `python scripts/sync_confluence.py`
-   - Built site locally: `mkdocs serve` and open http://127.0.0.1:8000
+3. Run sync (vSept15 v2):
+   - `python3 scripts/sync_confluence_vSept15_v2.py`
+   - This builds to a temporary folder and deploys to `gh-pages` directly. No local `site/` or `.generated_docs/` remains after completion.
+
+4. Optional local preview (legacy approach):
+   - If you use older scripts that write to `docs/` or `site/`, you can preview with `mkdocs serve` and open http://127.0.0.1:8000
+
+### Zero local artifacts
+- `site/` and `.generated_docs/` are ignored and cleaned automatically by the vSept15 v2 script.
+- Nothing generated is committed to `main`; only the `gh-pages` branch is updated during deploy.
+- This makes it safe for others to clone the repo, set their `.env`, and run the sync without polluting their working tree.
 
 ## GitHub Actions (CI/CD)
 This repo contains `.github/workflows/sync-and-deploy.yml` which:
@@ -46,6 +54,7 @@ Create these in your GitHub repo Settings → Secrets and variables → Actions:
 
 ## Repo structure
 - `scripts/sync_confluence.py` — scraper + converter (modular version, recommended)
+- `scripts/sync_confluence_vSept15_v2.py` — latest version used for CI-like local deploys; builds in a temp dir and cleans up
 - `scripts/sync_confluence_vSep10.py` — previous monolithic implementation (kept for reference)
 - `docs/` — generated content (safe to commit)
 - `mkdocs.yml` — auto-updated with the nav by the script
@@ -67,8 +76,9 @@ Create these in your GitHub repo Settings → Secrets and variables → Actions:
 - `Codex_Prompts.txt` — prompt used for the initial POC version.
 
 ## Usage
-- Local sync (recommended): `python scripts/sync_confluence.py`
-- Local sync (legacy): `python scripts/sync_confluence_vSep10.py`
+- Local sync (latest): `python3 scripts/sync_confluence_vSept15_v2.py`
+- Local sync (recommended modular alt): `python3 scripts/sync_confluence.py`
+- Local sync (legacy): `python3 scripts/sync_confluence_vSep10.py`
 - Preview locally: `mkdocs serve` then open `http://127.0.0.1:8000`
 - Manual deploy: `gh workflow run .github/workflows/sync-and-deploy.yml --ref main`
 - Watch run: `gh run list --limit 1 && gh run watch <RUN_ID>`

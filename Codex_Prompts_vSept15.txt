@@ -1,0 +1,60 @@
+Confluence → MkDocs Sync (vSept15 v2) — Prompt
+
+Goal
+- Build a robust Python script that syncs a Confluence page tree into a MkDocs site, deploys to GitHub Pages, and leaves no local build artifacts.
+
+Requirements
+- Inputs via environment variables (loaded from .env):
+  - CONFLUENCE_BASE_URL (e.g., https://<org>.atlassian.net/wiki)
+  - CONFLUENCE_EMAIL
+  - CONFLUENCE_API_TOKEN
+  - CONFLUENCE_ROOT_PAGE_ID
+  - Optional: FOLLOW_LINKS=true|false, MAX_LINK_DEPTH=int
+- Fetch the root page and all hierarchy children (REST: /rest/api/content/{id}, expand=body.view,ancestors).
+- Optionally follow in-content links to other Confluence pages up to MAX_LINK_DEPTH; record who referenced each discovery to build breadcrumbs and nav.
+- Download assets (images/attachments) referenced by pages and rewrite img src to local relative paths.
+- Convert Confluence HTML to Markdown. Normalize headings (at most one H1; demote extras to H2). Strip inline styles.
+- Rewrite internal links:
+  - Resolve full/tiny/display Confluence URLs to page IDs when possible.
+  - Map known IDs to local Markdown files. Use “pretty URLs” (folder paths with trailing slash) for site links.
+  - Keep external links unchanged.
+- Breadcrumbs:
+  - Render as HTML above the Markdown body.
+  - Include Home (site root), Overview (root page), then hierarchy ancestors or referring parents for linked content.
+  - Ensure the “Home” link points to the site root using clean relative paths (e.g., ../ or ../../), never ../index/.
+- Output layout:
+  - Do NOT commit generated docs to the repo.
+  - Generate into .generated_docs/ with Markdown files and a minimal mkdocs.yml, docs_dir set to “.”.
+  - Use a temporary site_dir for MkDocs build (e.g., tempfile.mkdtemp), not the repo’s site/ folder.
+- Validation:
+  - Before building, validate internal Markdown and HTML hrefs resolve to files within .generated_docs/.
+  - Handle pretty-folder URLs correctly: ‘foo/’ => ‘foo.md’; root-relative pretty links like ‘../’ map to index.md of that folder.
+- Deploy:
+  - Run mkdocs gh-deploy --force -f .generated_docs/mkdocs.yml to publish to the gh-pages branch.
+  - After deploy, delete the temporary site_dir and remove .generated_docs/.
+
+Non-goals
+- Don’t add or commit generated site output to main.
+- Don’t require users to pre-create navigation; script generates nav automatically.
+
+Acceptance Criteria
+- Running the script with a valid .env:
+  - Produces a gh-pages update with a site whose breadcrumbs link “Home” to the correct site root from any page depth.
+  - Leaves no local site/ or .generated_docs/ after completion.
+  - Rewrites internal links to pretty URLs that resolve, passing the validator.
+  - Downloads referenced images/attachments and rewrites their src.
+
+Implementation Notes
+- Organize code with Config, ConfluenceClient, Processor, and InlineWriter classes.
+- Normalize base URL to include /wiki for Cloud instances.
+- Add robust request retries and 429 handling.
+- Use markdownify for HTML→Markdown.
+- Use pathlib for path math; ensure relative links are OS-agnostic by normalizing to forward slashes.
+- Keep logs concise and actionable.
+
+How to Run
+1) pip install -r requirements.txt
+2) Create .env with the variables above.
+3) python3 scripts/sync_confluence_vSept15_v2.py
+4) Visit the GitHub Pages site (gh-pages); no local artifacts remain.
+
