@@ -5,9 +5,9 @@ Confluence → MkDocs (vSept15 v2)
 Goals:
 - Do NOT commit generated Markdown to the repo.
 - Generate a flat site into `.generated_docs/` and deploy using a generated mkdocs config.
-- Follow in-page Confluence links up to `MAX_LINK_DEPTH` and keep the hierarchy flat.
+- Deep-inline children up to MAX_LINK_DEPTH (default 2) within the parent page.
 - Resolve Confluence tiny/display links to local anchors or pages as appropriate.
-- Users only edit `.env` (or exported env vars) for credentials and depth/deploy toggles.
+- Users only edit .env for credentials and `MAX_LINK_DEPTH`.
 """
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ from pathlib import Path
 import tempfile
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple, Set
-from urllib.parse import urlparse, unquote, urljoin
+from urllib.parse import urlparse, unquote
 import html as htmlesc
 
 import requests
@@ -54,7 +54,6 @@ class Config:
     # Depth settings
     follow_links: bool = True
     max_link_depth: int = 4
-    deploy: bool = True
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -85,9 +84,6 @@ class Config:
                 data['max_link_depth'] = max(0, int(mld))
             except ValueError:
                 pass
-        deploy = os.getenv('DEPLOY_DOCS')
-        if deploy is not None:
-            data['deploy'] = str(deploy).strip().lower() in ("1", "true", "yes", "y")
         cfg = cls(**data)  # type: ignore[arg-type]
         cfg.validate()
         return cfg
@@ -129,9 +125,6 @@ class ConfluenceClient:
         self._count = 0
         self._host = urlparse(self.base_url).netloc
         self._resolve_cache: Dict[str, Optional[str]] = {}
-        self._base_for_join = self.base_url.rstrip('/') + '/'
-        parsed_base = urlparse(self.base_url)
-        self._root_base = f"{parsed_base.scheme}://{parsed_base.netloc}"
 
     @staticmethod
     def _normalize_base_url(url: str) -> str:
@@ -175,9 +168,9 @@ class ConfluenceClient:
         return self._req('GET', url, params=params).json()
 
     def _abs_url(self, url: str) -> str:
-        if not url:
-            return url
-        return urljoin(self._base_for_join, url)
+        if url.startswith('/'):
+            return f"{self.base_url}{url}"
+        return url
 
     def _extract_id_from_url(self, url: str) -> Optional[str]:
         m = re.search(r"/pages/(\d+)", url)
@@ -212,11 +205,11 @@ class ConfluenceClient:
                 self._resolve_cache[href] = None
                 return None
             try:
-                r = self._req('HEAD', absu, allow_redirects=True)
+                r = self._req('GET', absu, allow_redirects=True)
                 final_url = r.url
             except ConfluenceError:
                 try:
-                    r = self._req('GET', absu, allow_redirects=True)
+                    r = self._req('HEAD', absu, allow_redirects=True)
                     final_url = r.url
                 except Exception:
                     final_url = absu
@@ -258,7 +251,7 @@ class ConfluenceClient:
 
     def download(self, url: str, dest: Path) -> None:
         if url.startswith('/'):
-            url = f"{self._root_base}{url}"
+            url = f"{self.base_url}{url}"
         dest.parent.mkdir(parents=True, exist_ok=True)
         with self._req('GET', url, stream=True) as r:
             with open(dest, 'wb') as f:
@@ -266,9 +259,9 @@ class ConfluenceClient:
 
     def is_confluence_asset(self, url: str) -> bool:
         p = urlparse(url)
-        # Relative URL -> treat as Confluence asset so we attempt download
+        # Relative URL -> assume it's a Confluence-hosted asset
         if not p.netloc:
-            return True
+            return p.path.startswith(('/wiki/', '/download/', '/s/', 'download/')) or True
         # Same host and common asset paths
         return (self._host in p.netloc) and (
             p.path.startswith(('/', '/wiki/', '/download/', '/s/'))
@@ -290,48 +283,34 @@ class Processor:
         pages: Dict[str, Page] = {}
         visited: Set[str] = set()
         q = deque([(str(root_id), 0)])
-        queued: Set[str] = {str(root_id)}
-        failures: Dict[str, str] = {}
         while q:
             pid, ldepth = q.popleft()
             if pid in visited:
                 continue
+            visited.add(pid)
             try:
                 logger.info("Fetching %s (link-depth=%d)", pid, ldepth)
-                page = pages.get(pid)
-                if page is None or not page.html:
-                    page = self.client.get_page(pid, ldepth)
-                page.link_depth = ldepth
+                page = self.client.get_page(pid, ldepth)
                 pages[pid] = page
-                visited.add(pid)
                 # Enqueue children without increasing link-depth
                 children = self.client.list_children(pid, ldepth)
                 page.children = [c.id for c in children]
                 for ch in children:
-                    existing = pages.get(ch.id)
-                    if existing is None or not existing.html:
+                    if ch.id not in visited:
                         pages[ch.id] = ch
-                    if ch.id not in visited and ch.id not in queued:
                         q.append((ch.id, ldepth))
-                        queued.add(ch.id)
                 if self.cfg.follow_links and ldepth < self.cfg.max_link_depth:
                     linked_ids = self._extract_linked_page_ids(page.html)
                     logger.info("Found %d linked pages in %s", len(linked_ids), pid)
                     for linked in linked_ids:
-                        if linked not in visited and linked not in queued:
+                        if linked not in visited:
                             # remember who referenced it first
                             if linked not in self.discovered_from:
                                 self.discovered_from[linked] = pid
                             logger.info("Queuing linked page %s at depth %d", linked, ldepth + 1)
                             q.append((linked, ldepth + 1))
-                            queued.add(linked)
             except Exception as e:
                 logger.error("Failed to fetch page %s: %s", pid, e)
-                failures[pid] = str(e)
-        if failures:
-            raise ConfluenceError(
-                f"Failed to collect {len(failures)} page(s): " + ", ".join(sorted(failures.keys()))
-            )
         return pages
 
     def _extract_linked_page_ids(self, html: str) -> Set[str]:
@@ -354,12 +333,13 @@ class Processor:
             pass
         return ids
 
-    def clean_html(self, page: Page, html: str, page_path: Path) -> str:
+    def clean_html(self, page: Page, html: str, page_path: Path) -> Tuple[str, List[Path]]:
         soup = BeautifulSoup(html or '', 'html.parser')
         self._normalize_headings(soup)
         for t in soup.find_all(True):
             if 'style' in t.attrs:
                 del t['style']
+        downloads: List[Path] = []
         for img in soup.find_all('img'):
             src = img.get('src') or img.get('data-image-src') or img.get('data-src')
             if not src:
@@ -375,11 +355,13 @@ class Processor:
             if '/images/icons/emoticons/' in abs_src:
                 continue
             if self.client.is_confluence_asset(abs_src) or src.startswith(('download/', 'wiki/download', '/download/', '/wiki/s/', '/wiki/download/')):
-                new_src = self._download_asset(page, abs_src, page_path)
+                new_src, asset_rel = self._download_asset(page, abs_src, page_path)
                 if new_src:
                     img['src'] = new_src
+                if asset_rel:
+                    downloads.append(asset_rel)
         # Links are rewritten later when we know anchors and file layout
-        return str(soup)
+        return str(soup), downloads
 
     def _normalize_headings(self, soup: BeautifulSoup) -> None:
         h1s = soup.find_all('h1')
@@ -387,7 +369,7 @@ class Processor:
             if i > 0 and isinstance(h, Tag):
                 h.name = 'h2'
 
-    def _download_asset(self, page: Page, src: str, page_path: Path) -> Optional[str]:
+    def _download_asset(self, page: Page, src: str, page_path: Path) -> Tuple[Optional[str], Optional[Path]]:
         try:
             clean = src.split('?', 1)[0]
             filename = unquote(os.path.basename(clean)) or 'asset'
@@ -399,10 +381,10 @@ class Processor:
                 self.assets.add(key)
             page_dir = (self.cfg.out_dir / page_path).parent
             new_src = os.path.relpath(full, start=page_dir)
-            return new_src
+            return new_src, rel
         except Exception as e:
             logger.warning("asset download failed %s: %s", src, e)
-            return None
+            return None, None
 
 
 def slugify(text: str) -> str:
@@ -413,6 +395,17 @@ def slugify(text: str) -> str:
     s = re.sub(r"[^a-z0-9\-_]", '', s)
     s = re.sub(r"-+", '-', s).strip('-')
     return s or 'page'
+
+
+def shift_headings(md_text: str, shift: int) -> str:
+    if shift <= 0:
+        return md_text
+    def repl(m: re.Match[str]) -> str:
+        hashes = m.group(1)
+        rest = m.group(2)
+        new = min(6, len(hashes) + shift)
+        return '#' * new + rest
+    return re.sub(r"^(#{1,6})(\s+.+)$", repl, md_text, flags=re.MULTILINE)
 
 
 def strip_first_h1(md_text: str) -> str:
@@ -431,6 +424,7 @@ class InlineWriter:
         self.pages = pages
         self.root_id = str(root_id)
         self.file_map: Dict[str, Path] = {}  # page id -> output path (for top-level pages only)
+        self.inlined_ids_by_file: Dict[Path, Set[str]] = {}
         # Map of first-parent for linked pages
         self.discovered_from: Dict[str, str] = getattr(proc, 'discovered_from', {})
         self.tmp_site_dir: Optional[str] = None
@@ -448,6 +442,18 @@ class InlineWriter:
                 rel = Path('overview.md') if pid == str(root_id) else Path(f"{page.slug}-{pid}.md")
             self.file_map[pid] = rel
 
+    def _collect_inlined(self, pid: str, max_depth: int) -> Set[str]:
+        # ids that will be inlined inside pid's file (excluding pid itself)
+        out: Set[str] = set()
+        def rec(cur: str, depth: int) -> None:
+            if depth >= max_depth:
+                return
+            for ch in self.pages.get(cur, Page('', '', [], '')).children:
+                out.add(ch)
+                rec(ch, depth + 1)
+        rec(pid, 0)
+        return out
+
     def render_all(self, root_id: str) -> None:
         self.cfg.out_dir.mkdir(parents=True, exist_ok=True)
         # Copy assets from repo 'site_assets' (preferred) or legacy 'docs/assets'
@@ -460,6 +466,9 @@ class InlineWriter:
                 shutil.copytree(src, dest)
                 break
 
+        # No inlining; clear sets
+        self.inlined_ids_by_file = {path: set() for path in self.file_map.values()}
+
         # Render pages (each as a standalone file)
         for pid, rel in self.file_map.items():
             self._write_single_page(pid, rel)
@@ -471,7 +480,7 @@ class InlineWriter:
         self._write_mkdocs_config(root_id)
 
     def _to_md(self, page: Page, rel_path: Path) -> str:
-        cleaned = self.proc.clean_html(page, page.html, rel_path)
+        cleaned, _ = self.proc.clean_html(page, page.html, rel_path)
         return md(cleaned or '', heading_style='ATX', strip=None)
 
     def _write_single_page(self, pid: str, rel: Path) -> None:
@@ -804,10 +813,7 @@ def run_mkdocs(out_dir: Path, deploy: bool = True) -> None:
     cfg_path = out_dir / 'mkdocs.yml'
     # Validate links before building/deploying
     _validate_internal_links(out_dir)
-    effective_deploy = deploy and bool(os.getenv('GITHUB_TOKEN'))
-    if deploy and not effective_deploy:
-        logger.warning('GITHUB_TOKEN missing; running mkdocs build instead of gh-deploy')
-    if effective_deploy:
+    if deploy:
         cmd = ['mkdocs', 'gh-deploy', '--force', '-f', str(cfg_path)]
     else:
         cmd = ['mkdocs', 'build', '--strict', '-f', str(cfg_path)]
@@ -839,7 +845,7 @@ def main() -> None:
         logger.info('Collected pages=%d requests=%d assets=%d', len(pages), stats['requests'], len(proc.assets))
 
         # Deploy using generated config
-        run_mkdocs(cfg.out_dir, deploy=cfg.deploy)
+        run_mkdocs(cfg.out_dir, deploy=True)
         logger.info('Deploy completed.')
 
         # Cleanup temporary site_dir and generated docs to avoid local artifacts
