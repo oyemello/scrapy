@@ -1,0 +1,63 @@
+site_name: scrapy
+theme:
+  name: material
+  features:
+  - navigation.tracking
+  - navigation.sections
+  - navigation.expand
+  - search.highlight
+  - search.suggest
+  - content.code.copy
+  palette:
+  - media: '(prefers-color-scheme: light)'
+    scheme: default
+    primary: blue
+    accent: indigo
+    toggle:
+      icon: material/weather-night
+      name: Switch to dark mode
+  - media: '(prefers-color-scheme: dark)'
+    scheme: slate
+    primary: blue
+    accent: indigo
+    toggle:
+      icon: material/weather-sunny
+      name: Switch to light mode
+docs_dir: .
+site_dir: /tmp/mkdocs-site-wxbk5ei3
+plugins:
+- search
+- minify
+site_url: https://oyemello.github.io/scrapy/
+extra_css:
+- assets/overrides.css
+nav:
+- Home: index.md
+- Overview: overview.md
+- John Doe Company:
+  - John Doe Company: john-doe-company-688311.md
+  - Spent Planning Checklist: spent-planning-checklist-163952.md
+  - Software Architecture Review: software-architecture-review-65735.md
+  - Analysis 1: analysis-1-131318.md
+  - Analysis 2: analysis-2-2523138.md
+- Jane Doe Company:
+  - Jane Doe Company: jane-doe-company-2523155.md
+  - Planning Checklist: planning-checklist-2523180.md
+  - Jane Doe Software Architecture Review: jane-doe-software-architecture-review-2523202.md
+  - Jane Doe Analysis 1: jane-doe-analysis-1-2523220.md
+  - Jane Doe Analysis 2: jane-doe-analysis-2-2523247.md
+- Josh Doe Company:
+  - Josh Doe Company: josh-doe-company-4554762.md
+  - Linked Pages:
+    - Scrapy Level 2:
+      - Scrapy Level 2: linked-content/scrapy-level-2-4161553.md
+      - Linked Pages:
+        - Decision documentation: linked-content/decision-documentation-4423964.md
+        - Meeting notes: linked-content/meeting-notes-4423977.md
+        - Project plan:
+          - Project plan: linked-content/project-plan-4423951.md
+          - Linked Pages:
+            - Level 2:
+              - Level 2: linked-content/depth-2/level-2-4980741.md
+              - Linked Pages:
+                - Retrospective: linked-content/depth-2/retrospective-4358153.md
